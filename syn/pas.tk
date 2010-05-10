@@ -1,0 +1,37 @@
+<tokens>
+	<token type="word">
+		<class>Keyword</class>
+		<value IgnorCase="true">program</value>
+
+		<except>String</except>
+		<except>LineComment</except>
+		<except>BlockComment</except>
+		<include/>
+	</token>
+
+	<token type="BeginRegion">
+		<class>BlockComment</class>
+		<value>{</value>
+
+		<except>String</except>
+		<except>LineComment</except>
+		<except>BlockComment</except>
+	</token>
+	<token type="EndRegion">
+		<class>BlockComment</class>
+		<value>}</value>
+	</token>
+
+
+	<token type="LineBlock">
+		<class>LineComment</class>
+		<value>//</value>
+
+		<except>String</except>
+		<except>LineComment</except>
+		<except>BlockComment</except>
+
+	</token>
+	
+	<token type="LineBreaK"/>
+</tokens>
