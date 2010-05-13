@@ -1,3 +1,0 @@
-appicon		icon		ece\appicon.ico
-ecelogo		bitmap		ece\ecelogo.bmp
-tb_separator	bitmap		ece\tb_separator.bmp
