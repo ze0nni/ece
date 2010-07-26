@@ -1,0 +1,10 @@
+unit eceAppWindowTypes;
+
+interface
+
+const
+  wc_eceCodeEditor = 'eceAppWindowWnd32Class';
+
+implementation
+
+end.

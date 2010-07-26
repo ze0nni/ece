@@ -1,0 +1,50 @@
+unit eceAppWindow;
+
+interface
+
+uses
+  Windows,
+  Messages,
+  eceAppWindowClass,
+  eceAppWindowTypes;
+
+implementation
+
+function eceAppWindowProc(Wnd : HWND; msg : Cardinal; wParam, lParam : Integer) : Integer; stdcall;
+var PaintStuct : TPaintStruct;
+    wc : TeceAppWindowClass;
+begin
+wc := TEceCodeEditorClass(GetWindowLong(wnd, 0));
+  case msg  of
+    WM_CREATE :
+      begin
+        wc := TeceAppWindowClass.Create(wnd);
+        SetWindowLong(wnd, 0, Integer(wc));
+      end;
+    WM_DESTROY :
+      begin
+        PostQuitMessage(0);
+      end;
+    else
+      Result := DefWindowProc(wnd, msg, wParam, lParam);
+  end;
+end;
+
+var
+  wc : TWndClass;
+
+initialization
+  ZeroMemory(@wc, SizeOf(wc));
+  wc.style := CS_DBLCLKS or CS_OWNDC;
+  wc.lpfnWndProc := @eceAppWindowProc;
+  wc.cbWndExtra := 4;
+  wc.hInstance := hInstance;
+  wc.hIcon := LoadIcon(0, IDI_APPLICATION);
+  wc.hCursor := LoadCursor(0, IDC_IBEAM);
+  wc.lpszClassName := wc_eceAppWindow;
+  if not Boolean(RegisterClass(wc)) then
+  begin
+    MessageBox(0, PChar('Class <' + wc.lpszClassName + '> is not register'), nil, MB_ICONERROR or MB_SYSTEMMODAL);
+    ExitProcess(0)
+  end;
+end.

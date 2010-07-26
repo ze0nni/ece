@@ -1,0 +1,41 @@
+unit eceAppWindowClass;
+
+interface
+
+uses
+  Windows,
+  Messages,
+  eceAppWindowTypes,
+  zeWndControl;
+
+type
+  TeceAppWindowClass = class(TzeWndControl)
+  private
+
+  protected
+    function GetHwnd : HWND; override;
+  public
+    constructor Create;
+  end;
+
+implementation
+
+
+
+
+{ TeceAppWindowClass }
+
+constructor TeceAppWindowClass.Create;
+begin
+
+end;
+
+function TeceAppWindowClass.GetHwnd: HWND;
+begin
+    Result := CreateWindowEx(WS_EX_CLIENTEDGE,
+    wc_eceAppWindow, '[] - ece', WS_OVERLAPPEDWINDOW or WS_CLIPSIBLINGS,
+    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+    0, 0, HInstance, nil);
+end;
+
+end.
