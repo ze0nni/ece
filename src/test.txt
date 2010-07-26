@@ -1,0 +1,10 @@
+program Hello;
+
+uses
+	Windows,
+	Messages;
+
+begin
+	// Как бы говорим: "Прифффки!!11111"
+	WriteLn('Hello world!');
+end.
