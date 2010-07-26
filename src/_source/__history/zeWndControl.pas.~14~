@@ -1,0 +1,78 @@
+unit zeWndControl;
+
+interface
+
+uses
+  Windows;
+
+type
+  TzeWndControl = class
+  private
+    fHandle : HWND;
+    function GetVisible: Boolean;
+    procedure SetVisible(const Value: Boolean);
+  protected
+    function GetHwnd : HWND; virtual; abstract;
+  public
+    Constructor Create;
+    Destructor Destroy;
+    property Handle : HWND read fHandle;
+
+    procedure Show;
+    procedure Hide;
+    procedure Minimize;
+    procedure Maximize;
+    procedure Restore;
+    property  Visible : Boolean Read GetVisible write SetVisible;
+  end;
+
+implementation
+
+{ TzeWndControl }
+
+constructor TzeWndControl.Create;
+begin
+  fHandle := GetHwnd;
+end;
+
+destructor TzeWndControl.Destroy;
+begin
+  DestroyWindow(fHandle);
+end;
+
+function TzeWndControl.GetVisible: Boolean;
+begin
+  Result := IsWindowVisible(Handle);
+end;
+
+procedure TzeWndControl.Hide;
+begin
+  ShowWindow(fHandle, SW_HIDE);
+end;
+
+procedure TzeWndControl.Maximize;
+begin
+  ShowWindow(fHandle, SW_MAXIMIZE);
+end;
+
+procedure TzeWndControl.Minimize;
+begin
+  ShowWindow(fHandle, SW_MINIMIZE);
+end;
+
+procedure TzeWndControl.Restore;
+begin
+  ShowWindow(fHandle, SW_RESTORE);
+end;
+
+procedure TzeWndControl.SetVisible(const Value: Boolean);
+begin
+
+end;
+
+procedure TzeWndControl.Show;
+begin
+  ShowWindow(fHandle, SW_SHOW);
+end;
+
+end.
