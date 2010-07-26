@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<syntax>
+		<delemiters>
+			<token value=" "/>
+			<token value="\n"/>
+			<token value="."/>
+			<token value=","/>
+			<token value="!"/>
+			<token value="@"/>
+			<token value="#"/>
+			<token value="$"/>
+			<token value="%"/>
+			<token value="^"/>
+			<token value="/&"/>
+			<token value="*"/>
+			<token value="("/>
+			<token value=")"/>
+			<token value="-"/>
+			<token value="="/>
+			<token value="+"/>
+			<token value="{"/>
+			<token value="}"/>
+			<token value="["/>
+			<token value="]"/>
+			<token value=":"/>
+			<token value=";"/>
+			<token value="\'"/>
+			<token value="\'"/>
+		</delemiters>
+
+		<class name="End line">
+			<token value="\n"/>
+			<check type="Not in region" params="(String|Comment)"/>
+		</class>
+		<class name="Comments-rem">
+			<token value="\rem"/>
+			<check type="Not in region" params="(String|Comment)"/>
+		</class>
+
+		<class name="Comments-char">
+			<token value="\'"/>
+			<check type="Not in region" params="(String|Comment)"/>
+		</class>
+
+		<class name="Comment">
+			<style>Comments</style>
+		</class>
+
+		<class name="Line comment">
+			<include class="Comment"/>
+			<action type="open">
+				<event type="Create class" params="(Comments-rem|Comments-char)" nextevent="no"/>
+			</action>
+			<action type="close">
+            	<event type="Create class" params="End line" nextevent="no"/>
+			</action>
+		</class>
+
+		<class name="Block comment">
+			<include class="Comment"/>
+		</class>
+</syntax>
