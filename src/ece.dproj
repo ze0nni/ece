@@ -20,7 +20,7 @@
 			<Base>true</Base>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Base)'!=''">
-			<DCC_UnitSearchPath>Ifop\src\Ifop;Ifop\src\Ifop\std;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+			<DCC_UnitSearchPath>D:\projects\ece\src\MsAsKernal\src;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
 			<DCC_ExeOutput>..\bin</DCC_ExeOutput>
 			<DCC_DcuOutput>__temp</DCC_DcuOutput>
 			<DCC_DependencyCheckOutputName>..\bin\ece.exe</DCC_DependencyCheckOutputName>
@@ -54,7 +54,6 @@
 			<DCCReference Include="ConExec.pas"/>
 			<DCCReference Include="eceFindDialog.pas"/>
 			<DCCReference Include="eceSynParser.pas"/>
-			<DCCReference Include="Ifop\src\Ifop\IfopKernel.pas"/>
 			<DCCReference Include="eceConsoleWindow.pas"/>
 			<None Include="syn\vb.xml"/>
 			<None Include="ModelSupport_ece\Ece\default.txvpck"/>

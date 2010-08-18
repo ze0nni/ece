@@ -1,18 +1,17 @@
-{ ************************************************************ }
-{ }
-{ Easy Code editor }
-{ Copyright (c) 2010  zeDevel }
-{ }
-{ Разработчик: Благодарев Евгений  ze0nni@gmail.com }
-{ }
-{ ************************************************************ }
+// ************************************************************
+//
+// Easy Code editor
+// Copyright (c) 2010  zeDevel
+//
+// Разработчик: Благодарев Евгений  ze0nni@gmail.com
+//
+// ************************************************************
 
 Program Ece;
 {$APPTYPE GUI}
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
 // {$R _source\ece.res}
 // {$R _source\Dialogs.res}
-
 {$R *.dres}
 
 uses
@@ -28,7 +27,6 @@ uses
   ConExec in 'ConExec.pas',
   eceFindDialog in 'eceFindDialog.pas',
   eceSynParser in 'eceSynParser.pas',
-  IfopKernel in 'Ifop\src\Ifop\IfopKernel.pas',
   eceConsoleWindow in 'eceConsoleWindow.pas';
 
 var
@@ -41,7 +39,7 @@ begin
 {$ENDIF}
   try
     App := TEceAppWindow.Create(0);
-    // Кривая иконка
+    // todo: Кривая иконка
     SendMessage(App.Handle, WM_SETICON, ICON_SMALL, LoadIcon
         (HInstance, 'appicon'));
 
@@ -54,22 +52,10 @@ begin
     // ('EditorModules\autospace.dll');
     with TEceEditorWindow(App.Documents[0]) do
     begin
-      SetFont('Lucida console', 17);
+      // SetFont('Lucida console', 17);
+      SetFont('Consolas', 22);
       LoadColorTheme('color\default.txt');
       Caret.Style := csClassic;
-      // BackgroundColor := $404040;
-      // TextColor := $A0C0C0;
-      // with Tokens.NewToken('normal', ttWord) do
-      // begin
-      // TextColor := $A0C0C0;
-      // BkColor := $404040;
-      // end;
-      // with Tokens.NewToken('comments', ttEndRegion) do
-      // begin
-      // TextColor := $e0c080;
-      // BkColor := $404040;
-      // FontStyle := 2;
-      // end;
     end;
 
     if ParamCount <> 0 then
@@ -82,7 +68,8 @@ begin
 
     while GetMessage(msg, 0, 0, 0) do
     begin
-      if (msg.message = WM_KEYDOWN)and(msg.wParam=VK_RETURN)and(GetKeyState(VK_CONTROL) and 128 <> 0) then
+      if (msg.message = WM_KEYDOWN) and (msg.wParam = VK_RETURN) and
+        (GetKeyState(VK_CONTROL) and 128 <> 0) then
       begin
         App.Console.SetFocus;
       end

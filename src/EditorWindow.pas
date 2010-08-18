@@ -1,11 +1,12 @@
-{************************************************************}
-{                                                            }
-{                 Editor Window                              }
-{       Copyright (c) 2010  zeDevel                          }
-{                                                            }
-{  Разработчик: Благодарев Евгений  ze0nni@gmail.com         }
-{                                                            }
-{************************************************************}
+// ************************************************************
+//
+// Editor Window
+// Copyright (c) 2010  zeDevel
+//
+// Разработчик: Благодарев Евгений  ze0nni@gmail.com
+//
+// ************************************************************
+
 
 unit EditorWindow;
 // test comments line
@@ -23,7 +24,6 @@ uses
   DocumentWindow,
   BaseFile,
   math,
-  IfopKernel,
   eceSynParser;
 
 type
@@ -42,6 +42,9 @@ type
   /// <summary>
   /// Класс - окна редкатора кода
   /// </summary>
+
+  TEceEditorState = (esEdit, esPanaram);
+
   TEceEditorWindow = class(TEceDocumentWindow, IDispatch, IEceDocument,
     IEceEditor)
   private
@@ -66,6 +69,8 @@ type
     FBackgroundColor: integer;
 
     FSyntaxParser: TEceSynParser;
+    FState: TEceEditorState;
+    FPanaramModeMousePt: TPoint; // Положение мыши при панарамировании
 
     Function GetCount: integer;
     Function GetStrings(const Index: integer): string;
@@ -80,9 +85,10 @@ type
     procedure LineModification;
     procedure SetBackgroundColor(const value: integer);
     procedure SetTextColor(const value: integer);
+    procedure SetState(const value: TEceEditorState);
   protected
-    function CreateCaret : TCaret; virtual;
-    function CreateLine : TLine; virtual;
+    function CreateCaret: TCaret; virtual;
+    function CreateLine: TLine; virtual;
   protected
     procedure CreateParams(var Param: CreateStruct); override;
     procedure wmPaint(var msg: TMessage);
@@ -104,6 +110,10 @@ type
     message WM_LBUTTONUP;
     procedure wmMouseMove(var msg: TWMMouseMove);
     message WM_MOUSEMOVE;
+    procedure wmMButtonDown(var msg: TWmLbuttonDown);
+    message WM_MBUTTONDOWN;
+    procedure wmMButtonUp(var msg: TWMLButtonUp);
+    message WM_MBUTTONUP;
 
     procedure wmMouseWheel(var msg: TWMMouseWheel);
     message WM_MOUSEWHEEL;
@@ -148,6 +158,8 @@ type
     /// Функция загрузки цветовой схемы
     /// </summary>
     procedure LoadColorTheme(AFileName: string);
+
+    property State: TEceEditorState read FState write SetState;
 
     property Caret: TCaret Read FCaret;
     property Gutter: TGutter read FGutter;
@@ -247,7 +259,7 @@ type
     Procedure BreakLine(AChar: integer);
     procedure Draw(DC: HDC; Cx, Cy, StartChar: integer);
     Procedure Invalidate;
-    property Editor : TEceEditorWindow read FEditor;
+    property Editor: TEceEditorWindow read FEditor;
     property isRollBlock: boolean read GetisRollBlock;
     property isRollUp: boolean read FisRollUp write SetIsRollUp;
     property Text: String Read GetText write SetText;
@@ -367,9 +379,10 @@ type
     function _SetY(value: integer): integer; safecall;
   public
     Constructor Create(AEditor: TEceEditorWindow);
-    property Editor : TEceEditorWindow read FEditor;
+    property Editor: TEceEditorWindow read FEditor;
     property X: integer read Fx Write SetX;
     property Y: integer read Fy write SetY;
+    procedure SetXY(const Ax, Ay: integer);
     // Соответвуют реальным строкаи
     property SelStartX: integer read FSelStartX;
     property SelStartY: integer read FSelStartY;
@@ -409,17 +422,25 @@ var
   LineO: TLine;
   Line: Pchar;
   Brush: HBrush;
+  ClipRgn : HRGN;
 begin
   BeginPaint(Handle, Ps);
   CDC := CreateCompatibleDC(Ps.HDC);
   SelectObject(CDC, FBackBuffer);
 
+  // Сверху всего этого безобразия рисуем гуттер
+  {DONE 1 -oOnni -cBug : Интересный глюк, если печатать текст на последней строке,
+  то при печати 15 и 16 символа наблюдаются проблемы с отрисовкой, Этого не происходит если
+  Гуттер рисуется до, значит нужно рисовать гуттер до и иделать ClipRect}
+  FGutter.Draw(CDC, Ps.rcPaint);
+  GetClientRect(Handle, Rt);
+  ClipRgn := CreateRectRgn(Gutter.Size, 0, Rt.Right, rt.Bottom);
+  SelectClipRgn(CDC, ClipRgn);
+
   { TODO -oOnni -cGeneral : Постоянно создаются бращи }
   Brush := CreateSolidBrush(BackgroundColor);
   FillRect(CDC, EditorRect, Brush);
   DeleteObject(Brush);
-
-  FGutter.Draw(CDC, Ps.rcPaint);
 
   LineStart := OffsetY;
   LineEnd := LineStart + (EditorRect.Bottom div CharHeight) + 1;
@@ -441,10 +462,16 @@ begin
     OffsetRect(Rt, 0, CharHeight);
   end;
 
+  (*
+  // Сверху всего этого безобразия рисуем гуттер
+  FGutter.Draw(CDC, Ps.rcPaint);
+  *)
+
   BitBlt(Ps.HDC, Ps.rcPaint.Left, Ps.rcPaint.Top,
     Ps.rcPaint.Right - Ps.rcPaint.Left, Ps.rcPaint.Bottom - Ps.rcPaint.Top,
     CDC, Ps.rcPaint.Left, Ps.rcPaint.Top, SRCCOPY);
-
+  SelectClipRgn(CDC, 0);
+  DeleteObject(ClipRgn);
   DeleteDc(CDC);
   EndPaint(Handle, Ps);
 end;
@@ -538,10 +565,14 @@ begin
       Caret.X := Caret.X + 1;
     VK_HOME:
       begin
+        if isKeyDown(VK_CONTROL) then
+          Caret.Y := 0;
         Caret.X := 0;
       end;
     VK_END:
       begin
+        if isKeyDown(VK_CONTROL) then
+          Caret.Y := Count - 1;
         Caret.X := Lines[Caret.Line].Length;
       end;
     VK_DELETE:
@@ -623,7 +654,12 @@ begin
     end
     else
     begin
-      SetCursor(LoadCursor(0, IDC_IBEAM));
+      case State of
+        esEdit:
+          SetCursor(LoadCursor(0, IDC_IBEAM));
+        esPanaram:
+          SetCursor(LoadCursor(0, IDC_SIZEALL));
+      end;
     end;
   end
   else
@@ -634,7 +670,6 @@ procedure TEceEditorWindow.wmLbuttonDown(var msg: TWmLbuttonDown);
 var
   LineO: TLine;
 begin
-  SetFocus;
   if (msg.xPos < Gutter.Size) and (msg.xPos > Gutter.Size - CharHeight) then
   { Нажали по кнопке сворачивания блока }
   begin
@@ -650,10 +685,12 @@ begin
   { Нажали по полю }
   begin
     SetCapture(Handle);
-    Caret.Y := (msg.yPos div CharHeight) + OffsetY;
-    Caret.X := ((msg.xPos + (CharWidth div 2) - Gutter.Size) div CharWidth)
-      + OffsetX;
+    Caret.SetXY( { X }
+      ((msg.xPos + (CharWidth div 2) - Gutter.Size) div CharWidth) + OffsetX,
+      { Y }
+      (msg.yPos div CharHeight) + OffsetY);
   end;
+  SetFocus;
 end;
 
 procedure TEceEditorWindow.wmLbuttonUp(var msg: TWMLButtonUp);
@@ -661,13 +698,87 @@ begin
   ReleaseCapture;
 end;
 
-procedure TEceEditorWindow.wmMouseMove(var msg: TWMMouseMove);
+procedure TEceEditorWindow.wmMButtonDown(var msg: TWmLbuttonDown);
 begin
-  if GetCapture = Handle then
-  begin
-    Caret.X := ((msg.xPos + (CharWidth div 2) - Gutter.Size) div CharWidth)
-      + OffsetX;
-    Caret.Y := (msg.yPos div CharHeight) + OffsetY;
+  State := esPanaram;
+  SendMessage(Handle, WM_SETCURSOR, 0, MakeWParam(1, 0));
+  FPanaramModeMousePt.X := msg.xPos;
+  FPanaramModeMousePt.Y := msg.yPos;
+  SetCapture(Handle);
+end;
+
+procedure TEceEditorWindow.wmMButtonUp(var msg: TWMLButtonUp);
+begin
+  State := esEdit;
+  ReleaseCapture;
+end;
+
+procedure TEceEditorWindow.wmMouseMove(var msg: TWMMouseMove);
+var
+  Rt: TRect;
+  pt: TPoint;
+begin
+  case State of
+    esEdit:
+{$REGION 'Движение мышив нормальном режиме'}
+      if GetCapture = Handle then
+      begin
+        Caret.SetXY(((msg.xPos + (CharWidth div 2) - Gutter.Size)
+              div CharWidth) + OffsetX, (msg.yPos div CharHeight) + OffsetY);
+      end;
+{$ENDREGION}
+    esPanaram:
+{$REGION 'Движение в режиме панарамирования'}
+      if GetCapture = Handle then
+      begin
+        // Горизонтально
+        if abs(FPanaramModeMousePt.X - msg.xPos) > CharWidth then
+        begin
+          OffsetX := OffsetX + (FPanaramModeMousePt.X - msg.xPos) div CharWidth;
+          FPanaramModeMousePt.X := msg.xPos;
+        end;
+        // Вертикально
+        if abs(FPanaramModeMousePt.Y - msg.yPos) > CharHeight then
+        begin
+          OffsetY := OffsetY + (FPanaramModeMousePt.Y - msg.yPos)
+            div CharHeight;
+          FPanaramModeMousePt.Y := msg.yPos;
+        end;
+        (*
+          GetClientRect(Handle, Rt);
+          //Горизонтально
+          if msg.xPos < 0 then
+          begin
+          GetCursorPos(pt);
+          pt.X := pt.X + Rt.Right;
+          SetCursorPos(pt.X, pt.X);
+          FPanaramModeMousePt.X := msg.xPos + Rt.Right;
+          end;
+          if msg.xPos > Rt.Right then
+          begin
+          GetCursorPos(pt);
+          pt.X := pt.X - Rt.Right;
+          SetCursorPos(pt.X, pt.X);
+          FPanaramModeMousePt.X := msg.xPos - Rt.Right;
+          end;
+          //Вертикально
+          if msg.yPos < 0 then
+          begin
+          GetCursorPos(pt);
+          pt.Y := pt.Y + Rt.Bottom;
+          SetCursorPos(pt.X, pt.Y);
+          FPanaramModeMousePt.Y := msg.yPos + Rt.Bottom;
+          end;
+          if msg.yPos > Rt.Bottom then
+          begin
+          GetCursorPos(pt);
+          pt.Y := pt.Y - Rt.Bottom;
+          SetCursorPos(pt.X, pt.Y);
+          FPanaramModeMousePt.Y := msg.yPos - Rt.Bottom;
+          end;
+          *)
+      end;
+{$ENDREGION}
   end;
 end;
 
@@ -864,7 +975,7 @@ begin
   AddLine;
 
   FGutter := TGutter.Create(Self);
-  //FCaret := TCaret.Create(Self);
+  // FCaret := TCaret.Create(Self);
   FCaret := CreateCaret;
 
   FTokens := TTokenClassList.Create(Self);
@@ -880,7 +991,7 @@ end;
 
 function TEceEditorWindow.CreateCaret: TCaret;
 begin
-  Result := TCaret.Create(self);
+  Result := TCaret.Create(Self);
 end;
 
 function TEceEditorWindow.CreateLine: TLine;
@@ -955,6 +1066,11 @@ begin
   if (index < 0) or (index > FVisibleLines.Count - 1) then
     raise Exception.Create('Неверный индекс строки');
   Result := TLine(FVisibleLines[index]);
+end;
+
+procedure TEceEditorWindow.SetState(const value: TEceEditorState);
+begin
+  FState := value;
 end;
 
 procedure TEceEditorWindow.SetStrings(const Index: integer;
@@ -1106,7 +1222,14 @@ var
   Rt: TRect;
   CDC: HDC;
 begin
+
   if FOffsetX = value then
+    exit;
+
+  if (value < 0) and (FOffsetX = 0) then
+    exit;
+  if (value >= HScroll.Max - CharsInWidth + 1) and
+    (FOffsetX = HScroll.Max - CharsInWidth + 1) then
     exit;
 
   OffS := FOffsetX - value;
@@ -1130,6 +1253,13 @@ var
   Rt: TRect;
 begin
   if FOffsetY = value then
+    exit;
+
+  if (value < 0) and (FOffsetY = 0) then
+    exit;
+
+  if (value > Count - CharsInHeight + 1)and
+       (FOffsetY = Count - CharsInHeight + 1) then
     exit;
 
   OffS := FOffsetY - value;
@@ -1300,8 +1430,6 @@ begin
           LineTo(DC, Cx + (FEditor.CharWidth div 2) + 1, Cy +
               (FEditor.CharHeight div 2))
         end;
-
-        // DeleteObject(SelectObject(dc, Pen));
       end;
     end;
   end;
@@ -1635,6 +1763,13 @@ end;
 procedure TCaret.SetX(const value: integer);
 begin
   Fx := value;
+  Update;
+end;
+
+procedure TCaret.SetXY(const Ax, Ay: integer);
+begin
+  Fx := Ax;
+  Fy := Ay;
   Update;
 end;
 

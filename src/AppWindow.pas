@@ -135,7 +135,7 @@ begin
   ShowWindow(FPages.handle, SW_SHOW);
   FConsole := TEceConsoleWindow.Create(Handle, Self);
   FConsole.LoadColorTheme('color\console.txt');
-  FConsole.SetFont('Fixedsys', 10);
+  FConsole.SetFont('Consolas', 14);
   FConsole.Caret.Style := csClassic;
   UpdateCaption;
 end;

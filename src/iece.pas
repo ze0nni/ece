@@ -3,8 +3,6 @@ unit iece;
 
 interface
 
-//todo: разрбраться с dispInterface
-
 uses
   Windows,
   Classes;
