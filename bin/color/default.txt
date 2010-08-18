@@ -1,0 +1,13 @@
+Normal.Background.Color=$404040
+Normal.Background.Transparent=False
+Normal.Text.Color=$A0C0C0
+Normal.Text.Style=Normal
+
+Comments.Background.Color=$605040
+Comments.Background.Transparent=False
+Comments.Text.Color=$e0c080
+Comments.Text.Style=Italic
+
+Keywords.Background.Transparent=True
+Keywords.Text.Color=$8080e0
+Keywords.Text.Style=Bold
