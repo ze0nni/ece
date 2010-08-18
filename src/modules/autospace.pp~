@@ -1,0 +1,13 @@
+library autospace;
+
+uses
+    windows;
+
+function GetPlugin : IEcePlugin; stdcall;
+begin
+
+end;
+
+begin
+
+end.
