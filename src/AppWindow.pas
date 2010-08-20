@@ -8,6 +8,7 @@ uses
   Messages,
   Classes,
   SysUtils,
+  ActiveX,
   // zeError,
   zeWndControls,
   zePages,
@@ -21,7 +22,7 @@ type
 
   TEceAppWindow = class(TzeWndControl, IEceApplication, IDispatch)
   protected
-    FConsole : TEceConsoleWindow;
+    FConsole: TEceConsoleWindow;
     FDocuments: TList;
     FPages: TPages;
     FActiveDocument: Integer;
@@ -44,6 +45,10 @@ type
     function _GetDocuments(AIndex: Integer; var ADocument: IEceDocument)
       : Integer; safecall;
     procedure _UpdateCaption; safecall;
+  protected
+    function InvokeName(DispID: Integer; const IID: TGUID; LocaleID: Integer;
+      Flags: Word; Params: TPropArr; VarResult, ExcepInfo, ArgErr: Pointer)
+      : HResult; override;
   public
     procedure UpdateCaption;
     Constructor Create(AParent: Cardinal);
@@ -62,10 +67,21 @@ type
       : Integer read FActiveDocument write SetActiveDocument;
     property ActiveDocumentWindow
       : TEceDocumentWindow read GetActiveDocumentWindow;
-    property Console : TEceConsoleWindow read FConsole;
+    property Console: TEceConsoleWindow read FConsole;
   end;
 
 implementation
+
+const
+  PROP_TITLE = 0;
+  PROP_LEFT = 1;
+  PROP_TOP = 2;
+  PROP_WIDTH = 3;
+  PROP_HEIGHT = 4;
+
+  PROP_STDIN = 5;
+  PROP_STDOUT = 6;
+  PROP_STDERR = 7;
 
 function TEceAppWindow._GetDocuments(AIndex: Integer;
   var ADocument: IEceDocument): Integer;
@@ -108,9 +124,9 @@ begin
     exit;
   GetClientRect(handle, rt);
   SetWindowPos(FPages.handle, 0, 0, 0, rt.Right, 24, 0);
-  SetWindowPos(ActiveDocumentWindow.handle, 0, 0, 24, rt.Right, rt.Bottom - 24 - 172,
-    0);
-  SetWindowPos(FConsole.Handle, 0, 0, rt.Bottom - 172, rt.Right, 172, 0)
+  SetWindowPos(ActiveDocumentWindow.handle, 0, 0, 24, rt.Right,
+    rt.Bottom - 24 - 172, 0);
+  SetWindowPos(FConsole.handle, 0, 0, rt.Bottom - 172, rt.Right, 172, 0)
 end;
 
 procedure TEceAppWindow.wmSetFocus(var msg: TWmSetFocus);
@@ -133,10 +149,22 @@ begin
   FDocuments := TList.Create;
   FPages := TPages.Create(handle);
   ShowWindow(FPages.handle, SW_SHOW);
-  FConsole := TEceConsoleWindow.Create(Handle, Self);
+  FConsole := TEceConsoleWindow.Create(handle, Self);
   FConsole.LoadColorTheme('color\console.txt');
   FConsole.SetFont('Consolas', 14);
   FConsole.Caret.Style := csClassic;
+
+  FConsole.Kernal.AddObject('App', Self);
+  RegisterName('Title', PROP_TITLE);
+  RegisterName('Left', PROP_LEFT);
+  RegisterName('Top', PROP_TOP);
+  RegisterName('Width', PROP_WIDTH);
+  RegisterName('Height', PROP_HEIGHT);
+
+  RegisterName('StdIn', PROP_STDIN);
+  RegisterName('StdOut', PROP_STDOUT);
+  RegisterName('StdErr', PROP_STDERR);
+
   UpdateCaption;
 end;
 
@@ -184,6 +212,64 @@ end;
 function TEceAppWindow.GetDocumentsCount: Integer;
 begin
   Result := FDocuments.Count;
+end;
+
+function TEceAppWindow.InvokeName(DispID: Integer; const IID: TGUID;
+  LocaleID: Integer; Flags: Word; Params: TPropArr; VarResult, ExcepInfo,
+  ArgErr: Pointer): HResult;
+begin
+  case DispID of
+{$REGION 'Title'}
+    PROP_TITLE:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            ;
+          DISPATCH_SET:
+            begin
+              SetWindowText(handle, Params[0]);
+            end
+        else
+          exit(DISP_E_MEMBERNOTFOUND)
+        end;
+      end;
+{$ENDREGION}
+{$REGION 'SIZE POS'}
+    PROP_LEFT, PROP_TOP, PROP_WIDTH, PROP_HEIGHT:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            ;
+          DISPATCH_SET:
+            case DispID of
+              PROP_LEFT:
+                Left := Params[0];
+              PROP_TOP:
+                Top := Params[0];
+              PROP_WIDTH:
+                Width := Params[0];
+              PROP_HEIGHT:
+                Height := Params[0];
+            end;
+        else
+          exit(DISP_E_MEMBERNOTFOUND)
+        end;
+      end;
+{$ENDREGION}
+    PROP_STDIN, PROP_STDOUT, PROP_STDERR:
+      case Flags of
+        DISPATCH_SUB:
+          case DispID of
+            {TODO -oOnni -cGeneral : StdIn}
+            PROP_STDIN: Exit(DISP_E_MEMBERNOTFOUND);
+            PROP_STDOUT : StdOutProc(FConsole, Params[0], true);
+            PROP_STDERR : StdErrProc(FConsole, Params[0], true);
+          end;
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+      end;
+  end;
+  Result := S_OK;
 end;
 
 function TEceAppWindow.LoadPlugin(AFileName: string): boolean;

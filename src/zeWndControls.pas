@@ -31,6 +31,14 @@ type
     FVScroll: TScrollBar;
     FHScroll: TScrollBar;
     FIsDestroy: Boolean;
+    function GetLeft: Integer;
+    procedure SetLeft(const Value: Integer);
+    function GetTop: Integer;
+    procedure SetTop(const Value: Integer);
+    function GetHeight: Integer;
+    function GetWidth: Integer;
+    procedure SetHeight(const Value: Integer);
+    procedure SetWidth(const Value: Integer);
   protected
     procedure CreateParams(var Param: CreateStruct); virtual;
     procedure DefaultHandler(var Message); override;
@@ -45,8 +53,8 @@ type
     procedure wmHscroll(var msg: TWMHSCROLL);
     message WM_HSCROLL;
 
-    procedure onVscroll(pos: integer; EndScroll: Boolean); virtual;
-    procedure onHscroll(pos: integer; EndScroll: Boolean); virtual;
+    procedure onVscroll(pos: Integer; EndScroll: Boolean); virtual;
+    procedure onHscroll(pos: Integer; EndScroll: Boolean); virtual;
   public
     Constructor Create(Parent: Cardinal);
     Destructor Destroy; override;
@@ -55,29 +63,34 @@ type
     procedure KillFocus; virtual;
 
     property Handle: Cardinal read FHandle;
+
+    property Left: Integer read GetLeft write SetLeft;
+    property Top: Integer read GetTop write SetTop;
+    property Width: Integer read GetWidth write SetWidth;
+    property Height: Integer read GetHeight write SetHeight;
   end;
 
   TScrollBar = class
   private
     FControll: TzeWndControl;
-    FBar: integer;
+    FBar: Integer;
     FDisablenoScroll: Boolean;
-    Function GetPos: integer;
-    procedure SetPos(const value: integer);
-    Function GetMin: integer;
-    procedure SetMin(const value: integer);
-    Function GetMax: integer;
-    procedure SetMax(const value: integer);
-    Function GetPage: integer;
-    procedure SetPage(const value: integer);
+    Function GetPos: Integer;
+    procedure SetPos(const Value: Integer);
+    Function GetMin: Integer;
+    procedure SetMin(const Value: Integer);
+    Function GetMax: Integer;
+    procedure SetMax(const Value: Integer);
+    Function GetPage: Integer;
+    procedure SetPage(const Value: Integer);
     Function GetDisableNoScroll: Boolean;
-    procedure SetDisableNoScroll(const value: Boolean);
+    procedure SetDisableNoScroll(const Value: Boolean);
   public
-    constructor Create(AControll: TzeWndControl; ABar: integer);
-    Property pos: integer read GetPos Write SetPos;
-    property Min: integer read GetMin Write SetMin;
-    property Max: integer read GetMax Write SetMax;
-    property Page: integer read GetPage Write SetPage;
+    constructor Create(AControll: TzeWndControl; ABar: Integer);
+    Property pos: Integer read GetPos Write SetPos;
+    property Min: Integer read GetMin Write SetMin;
+    property Max: Integer read GetMax Write SetMax;
+    property Page: Integer read GetPage Write SetPage;
     property DisableNoScroll: Boolean read GetDisableNoScroll Write
       SetDisableNoScroll;
   end;
@@ -88,8 +101,8 @@ const
   WndClassObject = 'WndClassObject';
 
   // Оконная процедура
-function zeWndControlProc(Wnd: Cardinal; msg, WParam, LParam: integer)
-  : integer; stdcall;
+function zeWndControlProc(Wnd: Cardinal; msg, WParam, LParam: Integer)
+  : Integer; stdcall;
 var
   PMsg: TMessage;
   Obj: TzeWndControl;
@@ -134,12 +147,12 @@ begin
   if FHandle = 0 then
     raise Exception.Create('Ошибка при создании окна');
   //
-  SetProp(FHandle, WndClassObject, integer(self));
+  SetProp(FHandle, WndClassObject, Integer(self));
   // Создаем скроллы
   FVScroll := TScrollBar.Create(self, SB_VERT);
   FHScroll := TScrollBar.Create(self, SB_HORZ);
 
-  SetWindowLong(FHandle, GWL_WNDPROC, integer(@zeWndControlProc));
+  SetWindowLong(FHandle, GWL_WNDPROC, Integer(@zeWndControlProc));
 end;
 
 procedure TzeWndControl.DefaultHandler(var Message);
@@ -159,6 +172,38 @@ begin
   if Assigned(FHScroll) then
     FHScroll.Free;
   inherited;
+end;
+
+function TzeWndControl.GetHeight: Integer;
+var
+  rt: Trect;
+begin
+  GetWindowRect(Handle, rt);
+  Result := rt.Bottom - rt.Top;
+end;
+
+function TzeWndControl.GetLeft: Integer;
+var
+  rt: Trect;
+begin
+  GetWindowRect(Handle, rt);
+  Result := rt.Left;
+end;
+
+function TzeWndControl.GetTop: Integer;
+var
+  rt: Trect;
+begin
+  GetWindowRect(Handle, rt);
+  Result := rt.Top;
+end;
+
+function TzeWndControl.GetWidth: Integer;
+var
+  rt: Trect;
+begin
+  GetWindowRect(Handle, rt);
+  Result := rt.Right - rt.Left;
 end;
 
 procedure TzeWndControl.CreateParams(var Param: CreateStruct);
@@ -193,10 +238,10 @@ begin
 end;
 
 procedure TzeWndControl.wmVscroll(var msg: TWMVSCROLL);
-  function GetRealScrollPosition: integer;
+  function GetRealScrollPosition: Integer;
   var
     SI: TScrollInfo;
-    Code: integer;
+    Code: Integer;
   begin
     SI.cbSize := SizeOf(TScrollInfo);
     SI.fMask := SIF_TRACKPOS;
@@ -233,10 +278,10 @@ begin
 end;
 
 procedure TzeWndControl.wmHscroll(var msg: TWMHSCROLL);
-  function GetRealScrollPosition: integer;
+  function GetRealScrollPosition: Integer;
   var
     SI: TScrollInfo;
-    Code: integer;
+    Code: Integer;
   begin
     SI.cbSize := SizeOf(TScrollInfo);
     SI.fMask := SIF_TRACKPOS;
@@ -286,40 +331,74 @@ begin
   Windows.SetFocus(Handle);
 end;
 
+procedure TzeWndControl.SetHeight(const Value: Integer);
+var
+  rt: Trect;
+begin
+  GetWindowRect(Handle, rt);
+  SetWindowPos(Handle, 0, 0, 0, rt.Right - rt.Left, Value,
+    SWP_NOMOVE or SWP_NOACTIVATE);
+end;
+
+procedure TzeWndControl.SetLeft(const Value: Integer);
+var
+  rt: Trect;
+begin
+  GetWindowRect(Handle, rt);
+  SetWindowPos(Handle, 0, Value, rt.Top, 0, 0, SWP_NOSIZE or SWP_NOACTIVATE);
+end;
+
+procedure TzeWndControl.SetTop(const Value: Integer);
+var
+  rt: Trect;
+begin
+  GetWindowRect(Handle, rt);
+  SetWindowPos(Handle, 0, rt.left, Value, 0, 0, SWP_NOSIZE or SWP_NOACTIVATE);
+end;
+
+procedure TzeWndControl.SetWidth(const Value: Integer);
+var
+  rt: Trect;
+begin
+  GetWindowRect(Handle, rt);
+  SetWindowPos(Handle, 0, 0, 0, Value, rt.Bottom - rt.Top,
+    SWP_NOMOVE or SWP_NOACTIVATE);
+end;
+
 procedure TzeWndControl.KillFocus;
 begin
 
 end;
 
-procedure TzeWndControl.onVscroll(pos: integer; EndScroll: Boolean);
+procedure TzeWndControl.onVscroll(pos: Integer; EndScroll: Boolean);
 begin
 
 end;
 
-procedure TzeWndControl.onHscroll(pos: integer; EndScroll: Boolean);
+procedure TzeWndControl.onHscroll(pos: Integer; EndScroll: Boolean);
 begin
 
 end;
 
 { TScrollBar }
 
-constructor TScrollBar.Create(AControll: TzeWndControl; ABar: integer);
+constructor TScrollBar.Create(AControll: TzeWndControl; ABar: Integer);
 begin
   FControll := AControll;
   FBar := ABar;
 end;
 
-Function TScrollBar.GetPos: integer;
+Function TScrollBar.GetPos: Integer;
 begin
   Result := GetScrollPos(FControll.Handle, FBar);
 end;
 
-procedure TScrollBar.SetPos(const value: integer);
+procedure TScrollBar.SetPos(const Value: Integer);
 begin
-  SetScrollPos(FControll.Handle, FBar, value, true);
+  SetScrollPos(FControll.Handle, FBar, Value, true);
 end;
 
-Function TScrollBar.GetMin: integer;
+Function TScrollBar.GetMin: Integer;
 var
   sif: SCROLLINFO;
 begin
@@ -330,7 +409,7 @@ begin
   Result := sif.nMin;
 end;
 
-procedure TScrollBar.SetMin(const value: integer);
+procedure TScrollBar.SetMin(const Value: Integer);
 var
   sif: SCROLLINFO;
 begin
@@ -343,11 +422,11 @@ begin
   else
     sif.fMask := SIF_RANGE;
 
-  sif.nMin := value;
+  sif.nMin := Value;
   SetScrollInfo(FControll.Handle, FBar, sif, true);
 end;
 
-Function TScrollBar.GetMax: integer;
+Function TScrollBar.GetMax: Integer;
 var
   sif: SCROLLINFO;
 begin
@@ -358,7 +437,7 @@ begin
   Result := sif.nMax;
 end;
 
-procedure TScrollBar.SetMax(const value: integer);
+procedure TScrollBar.SetMax(const Value: Integer);
 var
   sif: SCROLLINFO;
 begin
@@ -371,11 +450,11 @@ begin
   else
     sif.fMask := SIF_RANGE;
 
-  sif.nMax := value;
+  sif.nMax := Value;
   SetScrollInfo(FControll.Handle, FBar, sif, true);
 end;
 
-Function TScrollBar.GetPage: integer;
+Function TScrollBar.GetPage: Integer;
 var
   sif: SCROLLINFO;
 begin
@@ -388,7 +467,7 @@ begin
     Result := 1;
 end;
 
-procedure TScrollBar.SetPage(const value: integer);
+procedure TScrollBar.SetPage(const Value: Integer);
 var
   sif: SCROLLINFO;
 begin
@@ -400,7 +479,7 @@ begin
   else
     sif.fMask := SIF_PAGE;
 
-  sif.nPage := value;
+  sif.nPage := Value;
   SetScrollInfo(FControll.Handle, FBar, sif, true);
 end;
 
@@ -416,13 +495,13 @@ begin
 
 end;
 
-procedure TScrollBar.SetDisableNoScroll(const value: Boolean);
+procedure TScrollBar.SetDisableNoScroll(const Value: Boolean);
 var
   sif: SCROLLINFO;
 begin
   ZeroMemory(@sif, SizeOf(sif));
   sif.cbSize := SizeOf(sif);
-  if value then
+  if Value then
     sif.fMask := SIF_DISABLENOSCROLL;
   SetScrollInfo(FControll.Handle, FBar, sif, true);
 end;

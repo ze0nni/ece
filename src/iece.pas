@@ -5,15 +5,23 @@ interface
 
 uses
   Windows,
+  Contnrs,
   Classes;
+
+const
+  DISPATCH_SUB = 1;
+  DISPATCH_FUNCTION = 2;
+  DISPATCH_GET = 3;
+  DISPATCH_SET = 4;
 
 type
   IEceDocument = interface;
 
   IEceApplication = interface
     function _GetHandle: HWND; safecall;
-    function _GetDocumentsCount : integer; safecall;
-    function _GetDocuments(AIndex : Integer; var ADocument : IEceDocument) : Integer; safecall;
+    function _GetDocumentsCount: integer; safecall;
+    function _GetDocuments(AIndex: integer; var ADocument: IEceDocument)
+      : integer; safecall;
     procedure _UpdateCaption; safecall;
   end;
 
@@ -27,21 +35,21 @@ type
 
   IEceEditor = interface
     function _GetHandle: HWND; safecall;
-    procedure _BeginUpdate ; safecall;
-    procedure _EndUpdate ; safecall;
-    function _GetLinesCount : Integer; safecall;
-    function _GetLines(AIndex : Integer) : IEceLine; safecall;
-    function _GetGutter : IGutter; safecall;
-    function _GetCaret : ICaret; safecall;
-    function _AddLine : IEceLine; safecall;
-    function _InsertLine(Index : Integer) : IEceLine; safecall;
-    procedure _DeleteLine(Index : Integer); safecall;
+    procedure _BeginUpdate; safecall;
+    procedure _EndUpdate; safecall;
+    function _GetLinesCount: integer; safecall;
+    function _GetLines(AIndex: integer): IEceLine; safecall;
+    function _GetGutter: IGutter; safecall;
+    function _GetCaret: ICaret; safecall;
+    function _AddLine: IEceLine; safecall;
+    function _InsertLine(Index: integer): IEceLine; safecall;
+    procedure _DeleteLine(Index: integer); safecall;
   end;
 
   IEceLine = interface
-    function _GetText : string; safecall;
-    function _SetText(Text : string) : Integer; safecall;
-    function _GetIndex : Integer; safecall;
+    function _GetText: string; safecall;
+    function _SetText(Text: string): integer; safecall;
+    function _GetIndex: integer; safecall;
   end;
 
   IGutter = interface
@@ -49,37 +57,55 @@ type
   end;
 
   ICaret = interface
-    function _GetX : Integer; safecall;
-    function _GetY : Integer; safecall;
-    function _SetX(value : Integer) : Integer; safecall;
-    function _SetY(value : Integer) : Integer; safecall;
+    function _GetX: integer; safecall;
+    function _GetY: integer; safecall;
+    function _SetX(value: integer): integer; safecall;
+    function _SetY(value: integer): integer; safecall;
   end;
 
   IEcePlugin = interface
-    function Load(App : IEceApplication) : boolean; safecall;
+    function Load(App: IEceApplication): boolean; safecall;
   end;
 
   IEceEditorPlugin = interface
-    function Load(Editor :IEceEditor) : boolean; safecall;
+    function Load(Editor: IEceEditor): boolean; safecall;
   end;
 
-  TEceInterfacedObject = class(TPersistent, IDispatch)
+  TNameItem = class
+    Name: string;
+    id: integer;
+  end;
+
+  TPropArr = array of OleVariant;
+
+  TEceInterfacedObject = class(TInterfacedObject, IDispatch)
   private
+    FNamesList: TStringList;
     { FRefCount : cardinal; }
-  public
-    function GetTypeInfoCount(out Count: Integer): HResult; stdcall;
-    function GetTypeInfo(Index, LocaleID: Integer; out TypeInfo): HResult;
+  private
+    function GetTypeInfoCount(out Count: integer): HResult; stdcall;
+    function GetTypeInfo(Index, LocaleID: integer; out TypeInfo): HResult;
       stdcall;
     function GetIDsOfNames(const IID: TGUID; Names: Pointer;
-      NameCount, LocaleID: Integer; DispIDs: Pointer): HResult; stdcall;
-    function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
+      NameCount, LocaleID: integer; DispIDs: Pointer): HResult; stdcall;
+    function Invoke(DispID: integer; const IID: TGUID; LocaleID: integer;
       Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HResult;
       stdcall;
+  protected
+    // Самая главная функция - обеспечивает обращение к свойствам и методам
+    function InvokeName(DispID: integer; const IID: TGUID; LocaleID: integer;
+      Flags: Word; Params: TPropArr; VarResult, ExcepInfo, ArgErr: Pointer)
+      : HResult; virtual; abstract;
   public
     function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
     function _AddRef: LongInt; stdcall;
     function _Release: LongInt; stdcall;
+  public
     constructor Create;
+    destructor Destroy; override;
+
+    procedure RegisterName(AName: string; AId: integer);
+    function GetNameId(Const AName: string): integer;
   end;
 
 implementation
@@ -105,26 +131,77 @@ begin
   Result := S_OK;
 end;
 
-function TEceInterfacedObject.GetIDsOfNames(const IID: TGUID; Names: Pointer;
-  NameCount, LocaleID: Integer; DispIDs: Pointer): HResult;
+destructor TEceInterfacedObject.Destroy;
+var
+  i: integer;
 begin
+  if Assigned(FNamesList) then
+  begin
+    for i := 0 to FNamesList.Count - 1 do
+      FNamesList.Objects[i].Free;
+    FNamesList.Free;
+  end;
+  inherited;
+end;
+
+function TEceInterfacedObject.Invoke(DispID: integer; const IID: TGUID;
+  LocaleID: integer; Flags: Word; var Params; VarResult, ExcepInfo,
+  ArgErr: Pointer): HResult;
+// type
+// TPropArr = array of OleVariant;
+var
+  P: TPropArr absolute Params;
+begin
+  Result := InvokeName(DispID, IID, LocaleID, Flags, P, VarResult, ExcepInfo,
+    ArgErr);
+  { TODO -oOnni -cBug : Программа вылетает сдесь без отладки, возможно причина в
+    потере каких-то ссылок на интерйейсы, тем более что так все работает: }
+  // AllocConsole;
+  // Writeln(p[0]);
+  // Result := S_OK;
+  // exit;
+end;
+
+function TEceInterfacedObject.GetIDsOfNames(const IID: TGUID; Names: Pointer;
+  NameCount, LocaleID: integer; DispIDs: Pointer): HResult;
+Type
+  TStringsArr = Array of PWideChar;
+  TDispArr = Array of integer;
+var
+  NamesArr: TStringsArr absolute Names;
+  DispArr: TDispArr absolute DispIDs;
+  i: integer;
+  id: integer;
+begin
+  for i := 0 to NameCount - 1 do
+  begin
+    id := GetNameId(NamesArr[i]);
+    // Выходим и показываем сообщение об ошибке
+    if id = -1 then
+      Exit(DISP_E_UNKNOWNNAME);
+    // Возвращаем ID свойства
+    DispArr[i] := id;
+  end;
   Result := S_OK;
 end;
 
-function TEceInterfacedObject.GetTypeInfo(Index, LocaleID: Integer;
+function TEceInterfacedObject.GetNameId(const AName: string): integer;
+var
+  index: integer;
+begin
+  index := FNamesList.IndexOf(AName);
+  if index = -1 then
+    Exit(-1);
+  Result := TNameItem(FNamesList.Objects[index]).id;
+end;
+
+function TEceInterfacedObject.GetTypeInfo(Index, LocaleID: integer;
   out TypeInfo): HResult;
 begin
   Result := S_OK;
 end;
 
-function TEceInterfacedObject.GetTypeInfoCount(out Count: Integer): HResult;
-begin
-  Result := S_OK;
-end;
-
-function TEceInterfacedObject.Invoke(DispID: Integer; const IID: TGUID;
-  LocaleID: Integer; Flags: Word; var Params; VarResult, ExcepInfo,
-  ArgErr: Pointer): HResult;
+function TEceInterfacedObject.GetTypeInfoCount(out Count: integer): HResult;
 begin
   Result := S_OK;
 end;
@@ -138,10 +215,25 @@ begin
     Result := E_NOINTERFACE;
 end;
 
+procedure TEceInterfacedObject.RegisterName(AName: string; AId: integer);
+var
+  Item: TNameItem;
+begin
+  if not Assigned(FNamesList) then
+    FNamesList := TStringList.Create;
+
+  Item := TNameItem.Create;
+  Item.Name := AName;
+  Item.id := AId;
+  FNamesList.AddObject(AName, Item);
+  FNamesList.Sort;
+  FNamesList.Sorted := true;
+end;
+
 constructor TEceInterfacedObject.Create;
 begin
   inherited;
-
+  FNamesList := TStringList.Create;
 end;
 
 initialization

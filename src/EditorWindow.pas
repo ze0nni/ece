@@ -45,7 +45,7 @@ type
 
   TEceEditorState = (esEdit, esPanaram);
 
-  TEceEditorWindow = class(TEceDocumentWindow, IDispatch, IEceDocument,
+  TEceEditorWindow = class(TEceDocumentWindow, IEceDocument,
     IEceEditor)
   private
     FFileName: string;
@@ -197,7 +197,7 @@ type
     procedure LoadPlugin(AFileName: string);
   end;
 
-  TGutter = class(TEceInterfacedObject, IDispatch, IGutter)
+  TGutter = class(TEceInterfacedObject, IGutter)
   private
     FSize: Cardinal;
     FEditor: TEceEditorWindow;
@@ -216,7 +216,7 @@ type
     selMiddle // В середине
     );
 
-  TLine = class(TEceInterfacedObject, IDispatch, IEceLine)
+  TLine = class(TEceInterfacedObject, IEceLine)
   private
     FText: String;
     FVisible: boolean;
@@ -357,7 +357,7 @@ type
     selEnd: TPoint;
   end;
 
-  TCaret = class(TEceInterfacedObject, IDispatch, ICaret)
+  TCaret = class(TEceInterfacedObject, ICaret)
   private
     FEditor: TEceEditorWindow;
     Fx, Fy: integer;

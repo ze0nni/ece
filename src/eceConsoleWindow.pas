@@ -27,6 +27,8 @@ type
   public
     Constructor Create(Parent: Cardinal; AApplication: IEceApplication);
     Destructor Destroy; override;
+
+    property Kernal : TKernel read FIfopKernel;
   end;
 
   TEceConsoleCaret = class(TCaret)
@@ -47,6 +49,10 @@ type
   public
     property LineType: TLineType read FLineType write SetLineType;
   end;
+
+  //procedure StdInProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean);
+  procedure StdOutProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean);
+  procedure StdErrProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean);
 
 implementation
 
