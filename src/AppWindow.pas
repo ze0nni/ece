@@ -125,8 +125,8 @@ begin
   GetClientRect(handle, rt);
   SetWindowPos(FPages.handle, 0, 0, 0, rt.Right, 24, 0);
   SetWindowPos(ActiveDocumentWindow.handle, 0, 0, 24, rt.Right,
-    rt.Bottom - 24 - 172, 0);
-  SetWindowPos(FConsole.handle, 0, 0, rt.Bottom - 172, rt.Right, 172, 0)
+    rt.Bottom - 24 - 72, 0);
+  SetWindowPos(FConsole.handle, 0, 0, rt.Bottom - 72, rt.Right, 72, 0)
 end;
 
 procedure TEceAppWindow.wmSetFocus(var msg: TWmSetFocus);
