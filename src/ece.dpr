@@ -18,6 +18,7 @@ uses
   Windows,
   Messages,
   SysUtils,
+  MsAsKernel in 'MsAsKernal\src\MsAsKernel.pas',
   zeWndControls in 'zeWndControls.pas',
   AppWindow in 'AppWindow.pas',
   EditorWindow in 'EditorWindow.pas',

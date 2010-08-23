@@ -20,7 +20,7 @@
 			<Base>true</Base>
 		</PropertyGroup>
 		<PropertyGroup Condition="'$(Base)'!=''">
-			<DCC_UnitSearchPath>D:\projects\ece\src\MsAsKernal\src;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+			<DCC_UnitSearchPath>.\MsAsKernal\src;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
 			<DCC_ExeOutput>..\bin</DCC_ExeOutput>
 			<DCC_DcuOutput>__temp</DCC_DcuOutput>
 			<DCC_DependencyCheckOutputName>..\bin\ece.exe</DCC_DependencyCheckOutputName>
@@ -46,6 +46,7 @@
 			<DelphiCompile Include="ece.dpr">
 				<MainSource>MainSource</MainSource>
 			</DelphiCompile>
+			<DCCReference Include="MsAsKernal\src\MsAsKernel.pas"/>
 			<DCCReference Include="zeWndControls.pas"/>
 			<DCCReference Include="AppWindow.pas"/>
 			<DCCReference Include="EditorWindow.pas"/>
