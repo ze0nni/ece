@@ -39,6 +39,8 @@ type
     function GetWidth: Integer;
     procedure SetHeight(const Value: Integer);
     procedure SetWidth(const Value: Integer);
+    function GetTitle: string;
+    procedure SetTitle(const Value: string);
   protected
     procedure CreateParams(var Param: CreateStruct); virtual;
     procedure DefaultHandler(var Message); override;
@@ -68,6 +70,8 @@ type
     property Top: Integer read GetTop write SetTop;
     property Width: Integer read GetWidth write SetWidth;
     property Height: Integer read GetHeight write SetHeight;
+
+    property Title : string read GetTitle write SetTitle;
   end;
 
   TScrollBar = class
@@ -188,6 +192,15 @@ var
 begin
   GetWindowRect(Handle, rt);
   Result := rt.Left;
+end;
+
+function TzeWndControl.GetTitle: string;
+var
+  Ln: Integer;
+begin
+  Ln := GetWindowTextLength(Handle);
+  SetLength(Result, Ln + 1);
+  GetWindowText(Handle, Pchar(Result), ln + 1);
 end;
 
 function TzeWndControl.GetTop: Integer;
@@ -346,6 +359,11 @@ var
 begin
   GetWindowRect(Handle, rt);
   SetWindowPos(Handle, 0, Value, rt.Top, 0, 0, SWP_NOSIZE or SWP_NOACTIVATE);
+end;
+
+procedure TzeWndControl.SetTitle(const Value: string);
+begin
+
 end;
 
 procedure TzeWndControl.SetTop(const Value: Integer);

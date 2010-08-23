@@ -7,7 +7,6 @@
 //
 // ************************************************************
 
-
 unit EditorWindow;
 // test comments line
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
@@ -45,8 +44,8 @@ type
 
   TEceEditorState = (esEdit, esPanaram);
 
-  TEceEditorWindow = class(TEceDocumentWindow, IEceDocument,
-    IEceEditor)
+  TEceEditorWindow = class(TEceDocumentWindow, IEceDocument, IEceEditor,
+    IDispatch)
   private
     FFileName: string;
     FFonts: array [0 .. 3] of HFont;
@@ -89,6 +88,9 @@ type
   protected
     function CreateCaret: TCaret; virtual;
     function CreateLine: TLine; virtual;
+    function InvokeName(DispID: integer; const IID: TGUID; LocaleID: integer;
+      Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
+      : HResult; override;
   protected
     procedure CreateParams(var Param: CreateStruct); override;
     procedure wmPaint(var msg: TMessage);
@@ -216,7 +218,7 @@ type
     selMiddle // В середине
     );
 
-  TLine = class(TEceInterfacedObject, IEceLine)
+  TLine = class(TEceInterfacedObject, IEceLine, IDispatch)
   private
     FText: String;
     FVisible: boolean;
@@ -357,7 +359,7 @@ type
     selEnd: TPoint;
   end;
 
-  TCaret = class(TEceInterfacedObject, ICaret)
+  TCaret = class(TEceInterfacedObject, ICaret, IDispatch)
   private
     FEditor: TEceEditorWindow;
     Fx, Fy: integer;
@@ -377,6 +379,11 @@ type
     function _GetY: integer; safecall;
     function _SetX(value: integer): integer; safecall;
     function _SetY(value: integer): integer; safecall;
+
+    function InvokeName(DispID: integer; const IID: TGUID; LocaleID: integer;
+      Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
+      : HResult; override;
+
   public
     Constructor Create(AEditor: TEceEditorWindow);
     property Editor: TEceEditorWindow read FEditor;
@@ -397,6 +404,18 @@ type
   end;
 
 implementation
+
+const
+  // EDITOR
+  PROP_LINESCOUNT = 0;
+  PROP_LINES = 1;
+
+  PROP_FILENAME = $F0;
+  PROP_CARET = $F1;
+
+  // CARET
+  PROP_CARET_X = 0;
+  PROP_CARET_Y = 1;
 
 function isKeyDown(key: integer): boolean;
 begin
@@ -422,19 +441,19 @@ var
   LineO: TLine;
   Line: Pchar;
   Brush: HBrush;
-  ClipRgn : HRGN;
+  ClipRgn: HRGN;
 begin
   BeginPaint(Handle, Ps);
   CDC := CreateCompatibleDC(Ps.HDC);
   SelectObject(CDC, FBackBuffer);
 
   // Сверху всего этого безобразия рисуем гуттер
-  {DONE 1 -oOnni -cBug : Интересный глюк, если печатать текст на последней строке,
-  то при печати 15 и 16 символа наблюдаются проблемы с отрисовкой, Этого не происходит если
-  Гуттер рисуется до, значит нужно рисовать гуттер до и иделать ClipRect}
+  { DONE 1 -oOnni -cBug : Интересный глюк, если печатать текст на последней строке,
+    то при печати 15 и 16 символа наблюдаются проблемы с отрисовкой, Этого не происходит если
+    Гуттер рисуется до, значит нужно рисовать гуттер до и иделать ClipRect }
   FGutter.Draw(CDC, Ps.rcPaint);
   GetClientRect(Handle, Rt);
-  ClipRgn := CreateRectRgn(Gutter.Size, 0, Rt.Right, rt.Bottom);
+  ClipRgn := CreateRectRgn(Gutter.Size, 0, Rt.Right, Rt.Bottom);
   SelectClipRgn(CDC, ClipRgn);
 
   { TODO -oOnni -cGeneral : Постоянно создаются бращи }
@@ -463,9 +482,9 @@ begin
   end;
 
   (*
-  // Сверху всего этого безобразия рисуем гуттер
-  FGutter.Draw(CDC, Ps.rcPaint);
-  *)
+    // Сверху всего этого безобразия рисуем гуттер
+    FGutter.Draw(CDC, Ps.rcPaint);
+    *)
 
   BitBlt(Ps.HDC, Ps.rcPaint.Left, Ps.rcPaint.Top,
     Ps.rcPaint.Right - Ps.rcPaint.Left, Ps.rcPaint.Bottom - Ps.rcPaint.Top,
@@ -987,6 +1006,12 @@ begin
   SendMessage(Handle, WM_SIZE, 0, 0);
 
   FPlugins := TInterfaceList.Create;
+  //
+  RegisterName('LinesCount', PROP_LINESCOUNT);
+  RegisterName('Lines', PROP_LINESCOUNT);
+
+  RegisterName('FileName', PROP_FILENAME);
+  RegisterName('Caret', PROP_CARET);
 end;
 
 function TEceEditorWindow.CreateCaret: TCaret;
@@ -1039,6 +1064,58 @@ end;
 procedure TEceEditorWindow.Invalidate;
 begin
   InvalidateRect(Handle, Nil, false);
+end;
+
+function TEceEditorWindow.InvokeName(DispID: integer; const IID: TGUID;
+  LocaleID: integer; Flags: Word; Params: TPropArr; var VarResult, ExcepInfo,
+  ArgErr: TPropArr): HResult;
+var
+  n: integer;
+begin
+  case DispID of
+{$REGION 'LinesCount'}
+    PROP_LINESCOUNT:
+      case Flags of
+        DISPATCH_GET:
+          VarResult[0] := Count;
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+      end;
+{$ENDREGION}
+{$REGION 'Lines'}
+    PROP_LINES:
+      case Flags of
+        DISPATCH_GET:
+          begin
+            n := Params[0];
+            VarResult[0] := Lines[n] as IDispatch;
+          end;
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+      end;
+{$ENDREGION}
+{$REGION 'FileName'}
+    PROP_FILENAME:
+      case Flags of
+        DISPATCH_GET:
+          VarResult[0] := FFileName;
+      else
+        exit(DISP_E_MEMBERNOTFOUND);
+      end;
+{$ENDREGION}
+{$REGION 'Caret'}
+    PROP_CARET:
+      case Flags of
+        DISPATCH_GET:
+          VarResult[0] := Caret as IDispatch
+        else
+          exit(DISP_E_MEMBERNOTFOUND);
+      end;
+{$ENDREGION}
+  else
+    exit(DISP_E_MEMBERNOTFOUND)
+  end;
+  Result := S_OK;
 end;
 
 Function TEceEditorWindow.GetCount: integer;
@@ -1258,8 +1335,8 @@ begin
   if (value < 0) and (FOffsetY = 0) then
     exit;
 
-  if (value > Count - CharsInHeight + 1)and
-       (FOffsetY = Count - CharsInHeight + 1) then
+  if (value > Count - CharsInHeight + 1) and
+    (FOffsetY = Count - CharsInHeight + 1) then
     exit;
 
   OffS := FOffsetY - value;
@@ -1757,6 +1834,8 @@ end;
 Constructor TCaret.Create(AEditor: TEceEditorWindow);
 begin
   FEditor := AEditor;
+  RegisterName('X', PROP_CARET_X);
+  RegisterName('Y', PROP_CARET_Y);
   Update;
 end;
 
@@ -1837,6 +1916,32 @@ procedure TCaret.Hide;
 begin
   HideCaret(FEditor.Handle);
   DestroyCaret;
+end;
+
+function TCaret.InvokeName(DispID: integer; const IID: TGUID;
+  LocaleID: integer; Flags: Word; Params: TPropArr; var VarResult, ExcepInfo,
+  ArgErr: TPropArr): HResult;
+begin
+  case DispID of
+    PROP_CARET_X, PROP_CARET_Y:
+      case Flags of
+        DISPATCH_GET:
+          case DispID of
+            PROP_CARET_X:VarResult[0] := X;
+            PROP_CARET_Y:VarResult[0] := Y;
+          end;
+        DISPATCH_SET:
+          case DispID of
+            PROP_CARET_X:X := Params[0];
+            PROP_CARET_Y:Y := Params[0];
+          end;
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+      end;
+  else
+    exit(DISP_E_MEMBERNOTFOUND)
+  end;
+  Result := S_OK;
 end;
 
 procedure TCaret.Update;

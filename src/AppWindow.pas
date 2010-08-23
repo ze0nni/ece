@@ -47,7 +47,7 @@ type
     procedure _UpdateCaption; safecall;
   protected
     function InvokeName(DispID: Integer; const IID: TGUID; LocaleID: Integer;
-      Flags: Word; Params: TPropArr; VarResult, ExcepInfo, ArgErr: Pointer)
+      Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
       : HResult; override;
   public
     procedure UpdateCaption;
@@ -82,6 +82,11 @@ const
   PROP_STDIN = 5;
   PROP_STDOUT = 6;
   PROP_STDERR = 7;
+
+  PROP_QUIT = 8;
+
+  PROP_DOCOMENTSCOUNT = 9;
+  PROP_DOCUMENTS = 10;
 
 function TEceAppWindow._GetDocuments(AIndex: Integer;
   var ADocument: IEceDocument): Integer;
@@ -125,8 +130,8 @@ begin
   GetClientRect(handle, rt);
   SetWindowPos(FPages.handle, 0, 0, 0, rt.Right, 24, 0);
   SetWindowPos(ActiveDocumentWindow.handle, 0, 0, 24, rt.Right,
-    rt.Bottom - 24 - 72, 0);
-  SetWindowPos(FConsole.handle, 0, 0, rt.Bottom - 72, rt.Right, 72, 0)
+    rt.Bottom - 24 - 172, 0);
+  SetWindowPos(FConsole.handle, 0, 0, rt.Bottom - 172, rt.Right, 172, 0)
 end;
 
 procedure TEceAppWindow.wmSetFocus(var msg: TWmSetFocus);
@@ -154,7 +159,7 @@ begin
   FConsole.SetFont('Consolas', 14);
   FConsole.Caret.Style := csClassic;
 
-  FConsole.Kernal.AddObject('App', Self);
+  FConsole.Kernal.AddObject('Application', Self);
   RegisterName('Title', PROP_TITLE);
   RegisterName('Left', PROP_LEFT);
   RegisterName('Top', PROP_TOP);
@@ -164,6 +169,11 @@ begin
   RegisterName('StdIn', PROP_STDIN);
   RegisterName('StdOut', PROP_STDOUT);
   RegisterName('StdErr', PROP_STDERR);
+
+  RegisterName('Quit', PROP_QUIT);
+
+  RegisterName('DocumentsCount', PROP_DOCOMENTSCOUNT);
+  RegisterName('Documents', PROP_DOCUMENTS);
 
   UpdateCaption;
 end;
@@ -215,8 +225,10 @@ begin
 end;
 
 function TEceAppWindow.InvokeName(DispID: Integer; const IID: TGUID;
-  LocaleID: Integer; Flags: Word; Params: TPropArr; VarResult, ExcepInfo,
-  ArgErr: Pointer): HResult;
+  LocaleID: Integer; Flags: Word; Params: TPropArr; var VarResult, ExcepInfo,
+  ArgErr: TPropArr): HResult;
+var
+  n: Integer;
 begin
   case DispID of
 {$REGION 'Title'}
@@ -224,13 +236,13 @@ begin
       begin
         case Flags of
           DISPATCH_GET:
-            ;
+            VarResult[0] := Title;
           DISPATCH_SET:
             begin
               SetWindowText(handle, Params[0]);
             end
-        else
-          exit(DISP_E_MEMBERNOTFOUND)
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
         end;
       end;
 {$ENDREGION}
@@ -239,7 +251,16 @@ begin
       begin
         case Flags of
           DISPATCH_GET:
-            ;
+            case DispID of
+              PROP_LEFT:
+                VarResult[0] := Left;
+              PROP_TOP:
+                VarResult[0] := Top;
+              PROP_WIDTH:
+                VarResult[0] := Width;
+              PROP_HEIGHT:
+                VarResult[0] := Height;
+            end;
           DISPATCH_SET:
             case DispID of
               PROP_LEFT:
@@ -256,23 +277,61 @@ begin
         end;
       end;
 {$ENDREGION}
+{$REGION 'IN/OUT'}
     PROP_STDIN, PROP_STDOUT, PROP_STDERR:
       case Flags of
         DISPATCH_SUB:
           case DispID of
-            {TODO -oOnni -cGeneral : StdIn}
-            PROP_STDIN: Exit(DISP_E_MEMBERNOTFOUND);
-            PROP_STDOUT : StdOutProc(FConsole, Params[0], true);
-            PROP_STDERR : StdErrProc(FConsole, Params[0], true);
+            { TODO -oOnni -cGeneral : StdIn }
+            PROP_STDIN:
+              exit(DISP_E_MEMBERNOTFOUND);
+            PROP_STDOUT:
+              StdOutProc(FConsole, Params[0], true);
+            PROP_STDERR:
+              StdErrProc(FConsole, Params[0], true);
           end;
       else
         exit(DISP_E_MEMBERNOTFOUND)
       end;
+{$ENDREGION}
+{$REGION 'Quit'}
+    PROP_QUIT:
+      case Flags of
+        DISPATCH_SUB:
+          DestroyWindow(handle);
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+
+      end;
+{$ENDREGION}
+{$REGION 'Documents count'}
+    PROP_DOCOMENTSCOUNT:
+      case Flags of
+        DISPATCH_GET:
+          VarResult[0] := DocumentsCount;
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+
+      end;
+{$ENDREGION}
+{$REGION 'Documents'}
+      PROP_DOCUMENTS:
+        case Flags of
+          DISPATCH_GET:
+            begin
+              n := Params[0];
+              VarResult[n] := Documents[n] as IDispatch;
+            end
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
+        end;
+{$ENDREGION}
   end;
   Result := S_OK;
 end;
 
 function TEceAppWindow.LoadPlugin(AFileName: string): boolean;
+
 var
   hPlugin: HMODULE;
   LoadProc: PGetPlugin;

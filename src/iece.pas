@@ -94,7 +94,7 @@ type
   protected
     // Самая главная функция - обеспечивает обращение к свойствам и методам
     function InvokeName(DispID: integer; const IID: TGUID; LocaleID: integer;
-      Flags: Word; Params: TPropArr; VarResult, ExcepInfo, ArgErr: Pointer)
+      Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
       : HResult; virtual; abstract;
   public
     function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
@@ -151,9 +151,15 @@ function TEceInterfacedObject.Invoke(DispID: integer; const IID: TGUID;
 // TPropArr = array of OleVariant;
 var
   P: TPropArr absolute Params;
+  R : TPropArr absolute VarResult;
+  E : TPropArr absolute ExcepInfo;
+  Er : TPropArr absolute ArgErr;
 begin
-  Result := InvokeName(DispID, IID, LocaleID, Flags, P, VarResult, ExcepInfo,
-    ArgErr);
+  try
+  Result := InvokeName(DispID, IID, LocaleID, Flags, P, R, E, Er)
+  except
+    //Ну, пока так, а причину эксепшенов надо выяснить
+  end;
   { TODO -oOnni -cBug : Программа вылетает сдесь без отладки, возможно причина в
     потере каких-то ссылок на интерйейсы, тем более что так все работает: }
   // AllocConsole;

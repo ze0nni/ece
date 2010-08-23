@@ -12,7 +12,7 @@ uses
 type
     TEceDocumentState = (dsReady, dsLoading, dsSaving);
 
-    TEceDocumentWindow = class(TzeWndControl, IEceDocument)
+    TEceDocumentWindow = class(TzeWndControl, IEceDocument, IDispatch)
     private
       FCsChangeState: TRTLCriticalSection;
       FState: TEceDocumentState;
