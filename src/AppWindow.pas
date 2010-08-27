@@ -44,6 +44,7 @@ type
     function _GetDocumentsCount: Integer; safecall;
     function _GetDocuments(AIndex: Integer; var ADocument: IEceDocument)
       : Integer; safecall;
+    procedure _FocusToActiveDocument; stdcall;
     procedure _UpdateCaption; safecall;
   protected
     function InvokeName(DispID: Integer; const IID: TGUID; LocaleID: Integer;
@@ -87,6 +88,13 @@ const
 
   PROP_DOCOMENTSCOUNT = 9;
   PROP_DOCUMENTS = 10;
+  PROP_ACTIVEDOCUMENTINDEX = 11;
+  PROP_ACTIVEDOCUMENT = 12;
+
+procedure TEceAppWindow._FocusToActiveDocument;
+begin
+  ActiveDocumentWindow.SetFocus;
+end;
 
 function TEceAppWindow._GetDocuments(AIndex: Integer;
   var ADocument: IEceDocument): Integer;
@@ -174,6 +182,9 @@ begin
 
   RegisterName('DocumentsCount', PROP_DOCOMENTSCOUNT);
   RegisterName('Documents', PROP_DOCUMENTS);
+
+  RegisterName('ActiveDocumentIndex', PROP_ACTIVEDOCUMENTINDEX);
+  RegisterName('ActiveDocument', PROP_ACTIVEDOCUMENT);
 
   UpdateCaption;
 end;
@@ -320,11 +331,33 @@ begin
           DISPATCH_GET:
             begin
               n := Params[0];
-              VarResult[n] := Documents[n] as IDispatch;
+              VarResult[0] := Documents[n] as IDispatch;
             end
           else
             exit(DISP_E_MEMBERNOTFOUND)
         end;
+{$ENDREGION}
+{$REGION 'ActiveDocumentIndex'}
+  PROP_ACTIVEDOCUMENTINDEX:
+          case Flags of
+            DISPATCH_GET:
+              begin
+                VarResult[0] := ActiveDocument;
+              end
+            else
+              exit(DISP_E_MEMBERNOTFOUND)
+          end;
+{$ENDREGION}
+{$REGION 'ActiveDocument'}
+  PROP_ACTIVEDOCUMENT:
+          case Flags of
+            DISPATCH_GET:
+              begin
+                VarResult[0] := Documents[ActiveDocument] as IDispatch;
+              end
+            else
+              exit(DISP_E_MEMBERNOTFOUND)
+          end;
 {$ENDREGION}
   end;
   Result := S_OK;

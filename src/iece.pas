@@ -6,6 +6,7 @@ interface
 uses
   Windows,
   Contnrs,
+  SysUtils,
   Classes;
 
 const
@@ -23,6 +24,8 @@ type
     function _GetDocuments(AIndex: integer; var ADocument: IEceDocument)
       : integer; safecall;
     procedure _UpdateCaption; safecall;
+
+    procedure _FocusToActiveDocument; stdcall;
   end;
 
   IEceDocument = interface
@@ -110,6 +113,9 @@ type
 
 implementation
 
+uses
+  EditorWindow;
+
 var
   SyncObject: TRTLCriticalSection;
 
@@ -151,14 +157,18 @@ function TEceInterfacedObject.Invoke(DispID: integer; const IID: TGUID;
 // TPropArr = array of OleVariant;
 var
   P: TPropArr absolute Params;
-  R : TPropArr absolute VarResult;
-  E : TPropArr absolute ExcepInfo;
-  Er : TPropArr absolute ArgErr;
+  R: TPropArr absolute VarResult;
+  E: TPropArr absolute ExcepInfo;
+  Er: TPropArr absolute ArgErr;
 begin
   try
-  Result := InvokeName(DispID, IID, LocaleID, Flags, P, R, E, Er)
-  except
-    //Ну, пока так, а причину эксепшенов надо выяснить
+    Result := InvokeName(DispID, IID, LocaleID, Flags, P, R, E, Er)
+    // Ну, пока так, а причину эксепшенов надо выяснить
+    except
+    on E:EEditorException do
+      raise Exception.Create(e.Message);
+    else
+      //Иначе ничего =)
   end;
   { TODO -oOnni -cBug : Программа вылетает сдесь без отладки, возможно причина в
     потере каких-то ссылок на интерйейсы, тем более что так все работает: }

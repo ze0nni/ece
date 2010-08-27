@@ -46,7 +46,6 @@
 			<DelphiCompile Include="ece.dpr">
 				<MainSource>MainSource</MainSource>
 			</DelphiCompile>
-			<DCCReference Include="MsAsKernal\src\MsAsKernel.pas"/>
 			<DCCReference Include="zeWndControls.pas"/>
 			<DCCReference Include="AppWindow.pas"/>
 			<DCCReference Include="EditorWindow.pas"/>
@@ -89,7 +88,7 @@
 						<Parameters Name="UseLauncher">False</Parameters>
 						<Parameters Name="LoadAllSymbols">True</Parameters>
 						<Parameters Name="LoadUnspecifiedSymbols">False</Parameters>
-						<Parameters Name="RunParams">test.txt</Parameters>
+						<Parameters Name="RunParams">..\src\EditorWindow.pas</Parameters>
 					</Parameters>
 					<VersionInfo>
 						<VersionInfo Name="IncludeVerInfo">False</VersionInfo>

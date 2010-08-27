@@ -44,6 +44,8 @@ type
 
   TEceEditorState = (esEdit, esPanaram);
 
+  EEditorException = class(Exception);
+
   TEceEditorWindow = class(TEceDocumentWindow, IEceDocument, IEceEditor,
     IDispatch)
   private
@@ -253,6 +255,10 @@ type
     function _SetText(Text: string): integer; safecall;
     function _GetIndex: integer; safecall;
     procedure UpdateSyn; virtual;
+  protected
+    function InvokeName(DispID: integer; const IID: TGUID; LocaleID: integer;
+      Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
+      : HResult; override;
   public
     Constructor Create(AEditor: TEceEditorWindow);
     Destructor Destroy; override;
@@ -389,7 +395,7 @@ type
     property Editor: TEceEditorWindow read FEditor;
     property X: integer read Fx Write SetX;
     property Y: integer read Fy write SetY;
-    procedure SetXY(const Ax, Ay: integer);
+    procedure SetXY(const Ax, Ay: integer); virtual;
     // Соответвуют реальным строкаи
     property SelStartX: integer read FSelStartX;
     property SelStartY: integer read FSelStartY;
@@ -409,9 +415,16 @@ const
   // EDITOR
   PROP_LINESCOUNT = 0;
   PROP_LINES = 1;
+  PROP_INVALIDATE = 2;
 
   PROP_FILENAME = $F0;
-  PROP_CARET = $F1;
+  PROP_SETFONT = $F1;
+  PROP_CARET = $F2;
+
+  // LINE
+  PROP_LINE_TEXT = 0;
+  PROP_LINE_LENGTH = 1;
+  PROP_LINE_INSERT = 2;
 
   // CARET
   PROP_CARET_X = 0;
@@ -834,8 +847,8 @@ end;
 procedure TEceEditorWindow.SetFocus;
 begin
   Inherited;
-  Caret.Show;
   Caret.Update;
+  Caret.Show;
 end;
 
 procedure TEceEditorWindow.KillFocus;
@@ -886,6 +899,7 @@ begin
   TextColor := bf.IntValue('Normal.Text.Color', $000000);
   // Грузим по очереди
   ReadStyle('Normal');
+  ReadStyle('Selection');
   ReadStyle('Comments');
   ReadStyle('Comments.Line');
   ReadStyle('Comments.Block');
@@ -966,13 +980,13 @@ var
 begin
   hPlugin := LoadLibrary(Pchar(AFileName));
   if hPlugin = 0 then
-    raise Exception.Create('Не удалось загрузить модуль ' + AFileName);
+    raise EEditorException.Create('Не удалось загрузить модуль ' + AFileName);
 
   LoadProc := GetProcAddress(hPlugin, 'GetPlugin');
   if @LoadProc = nil then
   begin
     FreeLibrary(hPlugin);
-    raise Exception.Create('GetPlugin не найден в таблице экспорта модуля ' +
+    raise EEditorException.Create('GetPlugin не найден в таблице экспорта модуля ' +
         AFileName);
   end;
 
@@ -987,7 +1001,7 @@ Constructor TEceEditorWindow.Create(Parent: Cardinal;
 begin
   Inherited;
   // Устанавливаем шрифт
-  SetFont('Lucida Console', 16);
+  SetFont('Fixedsys', 8);
   // Создаем строки
   FLines := TList.Create;
   FVisibleLines := TList.Create;
@@ -1008,9 +1022,11 @@ begin
   FPlugins := TInterfaceList.Create;
   //
   RegisterName('LinesCount', PROP_LINESCOUNT);
-  RegisterName('Lines', PROP_LINESCOUNT);
+  RegisterName('Lines', PROP_LINES);
+  RegisterName('Invalidate', PROP_INVALIDATE);
 
   RegisterName('FileName', PROP_FILENAME);
+  RegisterName('SetFont', PROP_SETFONT);
   RegisterName('Caret', PROP_CARET);
 end;
 
@@ -1082,13 +1098,24 @@ begin
         exit(DISP_E_MEMBERNOTFOUND)
       end;
 {$ENDREGION}
-{$REGION 'Lines'}
+  {$REGION 'Lines'}
     PROP_LINES:
       case Flags of
         DISPATCH_GET:
           begin
             n := Params[0];
             VarResult[0] := Lines[n] as IDispatch;
+          end;
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+      end;
+{$ENDREGION}
+{$REGION 'Invalidate'}
+    PROP_INVALIDATE:
+      case Flags of
+        DISPATCH_SUB:
+          begin
+            Invalidate;
           end;
       else
         exit(DISP_E_MEMBERNOTFOUND)
@@ -1101,6 +1128,15 @@ begin
           VarResult[0] := FFileName;
       else
         exit(DISP_E_MEMBERNOTFOUND);
+      end;
+{$ENDREGION}
+{$REGION 'SetFont'}
+    PROP_SETFONT:
+      case Flags of
+        DISPATCH_SUB:
+          SetFont(Params[1], Params[0]);
+        else
+            exit(DISP_E_MEMBERNOTFOUND);
       end;
 {$ENDREGION}
 {$REGION 'Caret'}
@@ -1141,7 +1177,7 @@ end;
 function TEceEditorWindow.GetVisibleLines(const index: integer): TLine;
 begin
   if (index < 0) or (index > FVisibleLines.Count - 1) then
-    raise Exception.Create('Неверный индекс строки');
+    raise EEditorException.Create(Format('Неверный индекс строки: %d.', [index]));
   Result := TLine(FVisibleLines[index]);
 end;
 
@@ -1165,7 +1201,7 @@ end;
 function TEceEditorWindow.GetLines(const index: integer): TLine;
 begin
   if (index < 0) or (index > Count - 1) then
-    raise Exception.Create('Неверный индекс строки');
+    raise EEditorException.Create(Format('Неверный индекс строки: %d.', [index]));
   Result := TLine(FLines[index]);
 end;
 
@@ -1207,7 +1243,7 @@ begin
     FVisibleLines.Insert(AIndex, Result);
   except
     Result.Free;
-    raise Exception.Create('Неверный индекс строки');
+    raise EEditorException.Create('Неверный индекс строки');
   end;
 
   if FUpdateLockCount > 0 Then
@@ -1259,15 +1295,35 @@ var
   DC: HDC;
   i: integer;
   Sz: TSize;
+  Fnt: HFont;
+  Metrics: TTextMetric;
+
 begin
   BoldVal := 600;
+
+  // Проверяем шрифт на моноширность
+  DC := GetDC(0);
+  Fnt := CreateFont(Size, 0, 0, 0, 0, 0, 0, 0, DEFAULT_CHARSET, 0, 0, 0, 0,
+    Pchar(AFont));
+  SelectObject(DC, Fnt);
+  GetTextMetrics(DC, Metrics);
+  if not (((Metrics.tmPitchAndFamily and ff_Modern) <> 0) and
+      ((Metrics.tmPitchAndFamily and $01) = 0)) then
+  begin
+    ReleaseDC(0, DC);
+    DeleteObject(Fnt);
+    raise EEditorException.Create(Format('Шрифт "%s" не является моноширным.', [AFont]));
+  end;
+
+  ReleaseDC(0, DC);
 
   for i := 0 to 3 do
     DeleteObject(FFonts[i]);
 
   // нормальный, жырный,курсив, и жирный курсив. по порядку
-  FFonts[0] := CreateFont(Size, 0, 0, 0, 0, 0, 0, 0, DEFAULT_CHARSET, 0, 0, 0,
-    0, Pchar(AFont));
+  (* FFonts[0] := CreateFont(Size, 0, 0, 0, 0, 0, 0, 0, DEFAULT_CHARSET, 0, 0, 0,
+    0, Pchar(AFont)); *)
+  FFonts[0] := Fnt;
   FFonts[1] := CreateFont(Size, 0, 0, 0, BoldVal, 0, 0, 0, DEFAULT_CHARSET, 0,
     0, 0, 0, Pchar(AFont));
   FFonts[2] := CreateFont(Size, 0, 0, 0, 0, 1, 0, 0, DEFAULT_CHARSET, 0, 0, 0,
@@ -1291,6 +1347,7 @@ begin
   end;
 
   DeleteDc(DC);
+  Invalidate;
 end;
 
 procedure TEceEditorWindow.SetOffsetX(const value: integer);
@@ -1540,6 +1597,10 @@ begin
   // потом создадим
   // FRollUpLines := TList.Create;
   FTokens := TList.Create;
+
+  RegisterName('Text', PROP_LINE_TEXT);
+  RegisterName('Length', PROP_LINE_LENGTH);
+  RegisterName('Insert', PROP_LINE_INSERT);
 end;
 
 Destructor TLine.Destroy;
@@ -1576,6 +1637,7 @@ begin
     Char := Pchar(FText) + StartChar;
     ChWidth := FEditor.CharWidth;
     // Выводим все символы
+    {TODO -oOnni -cGeneral : Добавить возможность выделения}
     if FTokens.Count = 0 then
     begin
 {$REGION 'Вывод без учета подсветки'}
@@ -1599,7 +1661,7 @@ begin
         Tk := TToken(FTokens[i]);
         // if StartChar > tk.FirstChar + tk.Length  then
         // continue;
-        { TODO -oOnni -cDraw : Потимизировать }
+        { TODO -oOnni -cDraw : оптимизировать }
         Tk.ApplyStyle(DC);
         Char := @FText[Tk.FirstChar + 1];
         TextOut(DC, Cx - FEditor.OffsetX * FEditor.CharWidth, Cy, Char,
@@ -1610,7 +1672,6 @@ begin
 {$ENDREGION}
     end;
   end;
-
   // Если блок свернут
   if isRollUp then
   begin
@@ -1792,6 +1853,45 @@ begin
   InvalidateRect(FEditor.Handle, @Rt, false);
 end;
 
+function TLine.InvokeName(DispID: integer; const IID: TGUID; LocaleID: integer;
+  Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
+  : HResult;
+begin
+  case DispID of
+{$REGION 'Text'}
+    PROP_LINE_TEXT:
+      case Flags of
+        DISPATCH_GET:
+          VarResult[0] := Text;
+        DISPATCH_SET:
+          Text := Params[0];
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+      end;
+{$ENDREGION}
+{$REGION 'Length'}
+    PROP_LINE_LENGTH:
+      case Flags of
+        DISPATCH_GET:
+          VarResult[0] := Length;
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+      end;
+{$ENDREGION}
+{$REGION 'Insert'}
+    PROP_LINE_INSERT:
+      case Flags of
+        DISPATCH_SUB:
+          Self.Insert(Params[1], Params[0]);
+      else
+        exit(DISP_E_MEMBERNOTFOUND)
+      end;
+{$ENDREGION}
+  else
+    exit(DISP_E_MEMBERNOTFOUND)
+  end;
+end;
+
 procedure TLine.UpdateLinesIndex;
 begin
   { DONE: безобразие }
@@ -1842,6 +1942,7 @@ end;
 procedure TCaret.SetX(const value: integer);
 begin
   Fx := value;
+  FEditor.Lines[Y].Invalidate;
   Update;
 end;
 
@@ -1850,11 +1951,17 @@ begin
   Fx := Ax;
   Fy := Ay;
   Update;
+  FEditor.Lines[Y].Invalidate;
 end;
 
 procedure TCaret.SetY(const value: integer);
 begin
+  try
+  FEditor.Lines[Y].Invalidate;
+  except end;
   Fy := value;
+  try FEditor.Lines[Y].Invalidate;
+  except end;
   if Fy < 0 then
     Fy := 0;
   if Fy > FEditor.FVisibleLines.Count - 1 then
@@ -1927,13 +2034,17 @@ begin
       case Flags of
         DISPATCH_GET:
           case DispID of
-            PROP_CARET_X:VarResult[0] := X;
-            PROP_CARET_Y:VarResult[0] := Y;
+            PROP_CARET_X:
+              VarResult[0] := X;
+            PROP_CARET_Y:
+              VarResult[0] := Y;
           end;
         DISPATCH_SET:
           case DispID of
-            PROP_CARET_X:X := Params[0];
-            PROP_CARET_Y:Y := Params[0];
+            PROP_CARET_X:
+              X := Params[0];
+            PROP_CARET_Y:
+              Y := Params[0];
           end;
       else
         exit(DISP_E_MEMBERNOTFOUND)
@@ -1970,6 +2081,7 @@ begin
       OffsetY := Fy - CharsInHeight + 1;
   end;
   // Выделяем или нет
+  //TODO: При знятии выделения, нужно обновить все ранее выделенные строки
   if not SelectionMode then
   begin
     FSelStartX := Fx;

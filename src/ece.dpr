@@ -18,7 +18,6 @@ uses
   Windows,
   Messages,
   SysUtils,
-  MsAsKernel in 'MsAsKernal\src\MsAsKernel.pas',
   zeWndControls in 'zeWndControls.pas',
   AppWindow in 'AppWindow.pas',
   EditorWindow in 'EditorWindow.pas',
@@ -65,7 +64,7 @@ begin
     // App.LoadPlugin('modules\autospace.dll');
 
     { TODO -oOnni -cПочти готово : Диалог поиска }
-    //ShowFindDialog(app, TEceEditorWindow(App.Documents[0]));
+    // ShowFindDialog(app, TEceEditorWindow(App.Documents[0]));
 
     while GetMessage(msg, 0, 0, 0) do
     begin

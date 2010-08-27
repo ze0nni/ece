@@ -3,6 +3,11 @@ Normal.Background.Transparent=False
 Normal.Text.Color=$A0C0C0
 Normal.Text.Style=Normal
 
+Selection.Background.Color=$0080a0
+Selection.Background.Transparent=False
+Selection.Text.Color=$203040
+Selection.Text.Style=Normal
+
 Comments.Background.Color=$605040
 Comments.Background.Transparent=False
 Comments.Text.Color=$e0c080
