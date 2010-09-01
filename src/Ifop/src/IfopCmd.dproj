@@ -53,6 +53,7 @@
 			<DCCReference Include="Ifop\std\ifopSystem.pas"/>
 			<DCCReference Include="Ifop\std\ifopOle.pas"/>
 			<DCCReference Include="Ifop\std\ifopRegExp.pas"/>
+			<DCCReference Include="Ifop\std\ifopLogic.pas"/>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
 			</BuildConfiguration>

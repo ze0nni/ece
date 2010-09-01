@@ -124,7 +124,7 @@ begin
   Kernel.AddKeyword('2over', @ifop2Over);
   Kernel.AddKeyword('2drop', @ifop2Drop);
   Kernel.AddKeyword('Pick', @ifopPick);
-  Kernel.AddKeyword('vstack', @ifop2ViewStack);
+  Kernel.AddKeyword('.s', @ifop2ViewStack);
 end;
 
 end.

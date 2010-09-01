@@ -14,7 +14,8 @@ uses
   ifopIo,
   ifopStack,
   ifopOle,
-  ifopRegExp;
+  ifopRegExp,
+  ifopLogic;
 
 const
   IfopVersionMajor = 0;
@@ -27,31 +28,33 @@ type
 
   TAngleMode = (amDeg, amRad, amGrad);
 
-  PStdOutProc = procedure(Data : Pointer; Text : string; AReturn : Boolean);
-  PStdErrProc = procedure(Data : Pointer; Text : string; AReturn : Boolean);
+  PStdOutProc = procedure(Data: Pointer; Text: string; AReturn: Boolean);
+  PStdErrProc = procedure(Data: Pointer; Text: string; AReturn: Boolean);
 
-  TIfopArg = (argByte,
-              argWord,
-              argInteger,
-              ArgString);
+  TIfopArg = (argByte, argWord, argInteger, ArgString);
 
   TIfopKernel = class
   private
-    // Стек 
+    // Стек
     FStack: TList;
-    // Словарь 
+    //Стек адресов возврата
+    FRetStack : TList;
+    // Словарь
     FDictionary: TStringList;
-    // Тут будут храниться строки при добавлении 
+    // Тут будут храниться строки при добавлении
     FCode: TStringList;
-    // Тут будут "откомплированные" инструкции 
+    // Тут будут "откомплированные" инструкции
     FCommands: TList;
     FisScriptEnd: Boolean;
     FAngleMode: TAngleMode;
-    //IO
-    FStdOutData : Pointer;
-    FStdErrData : Pointer;
-    FStdOutProc : PStdOutProc;
-    FStdErrProc : PStdErrProc;
+    // IO
+    FStdOutData: Pointer;
+    FStdErrData: Pointer;
+    FStdOutProc: PStdOutProc;
+    FStdErrProc: PStdErrProc;
+    // Текущая очередь команд
+    FCourientTk: TStringList;
+    FCourientTkLine: Integer;
     //
     procedure RegisterStdDictionarys;
     function GetDictionarySize: Integer;
@@ -62,6 +65,7 @@ type
     procedure SetisScriptEnd(const Value: Boolean);
     procedure SetAngleMode(const Value: TAngleMode);
     function FloatToRad(const Val: Double): Double;
+    procedure SetCourientTkLine(const Value: Integer);
   public
     constructor Create;
     destructor Destroy; override;
@@ -69,63 +73,71 @@ type
     procedure AddCode(ACode: string);
     // Процедура добавляет к словарю вызов стандартной функции
     procedure AddKeyword(const AKeyword: string; AProc: Pointer);
-    procedure AddMethod(const AKeyword: string; AObject, AProc : Pointer; ArgsIn, ArgsOut : array of TIfopArg);
-    // 
+    procedure AddMethod(const AKeyword: string; AObject, AProc: Pointer;
+      ArgsIn, ArgsOut: array of TIfopArg);
+    //
     procedure stdin(var AString: string; ReturnLn: Boolean = true);
     procedure stdout(AString: string; ReturnLn: Boolean = true);
     procedure stderr(AString: string; ReturnLn: Boolean = true);
 
     function ExecuteToken(const AToken: string): Boolean; inline;
-    //io
-    procedure SetStdOut(AData : Pointer; AProc : PStdOutProc);
-    procedure SetStdErr(AData : Pointer; AProc : PStdErrProc);
-    // Stack 
+    // io
+    procedure SetStdOut(AData: Pointer; AProc: PStdOutProc);
+    procedure SetStdErr(AData: Pointer; AProc: PStdErrProc);
+    // Stack
     property StackSize: Integer read GetStackSize;
     property Stack[const index: Integer]
       : TIfopVariant read GetStack write SetStack;
     procedure Push(const AItem: TIfopVariant); overload;
     function Pop: TIfopVariant; overload;
+    //Ret
+    procedure PushRet(const Addr : Integer);
+    function  PopRet : Integer;
+    function  GetRet : Integer;
     //
-    procedure PushInt(const val : Integer);
-    function PopInt : Integer;
-    procedure PushFloat(const val : Double);
-    function PopFloat : Double;
-    procedure PushStr(const val : string);
-    function PopStr : string;
-    // Dictionary 
+    property CourientTkLine: Integer read FCourientTkLine write SetCourientTkLine;
+    //
+    procedure PushInt(const Val: Integer);
+    function PopInt: Integer;
+    procedure PushFloat(const Val: Double);
+    function PopFloat: Double;
+    procedure PushStr(const Val: string);
+    function PopStr: string;
+    // Dictionary
     property DictionarySize: Integer read GetDictionarySize;
     property Dictionary[const Index: Integer]
       : TifopKernelDictionaryItem read GetDictionary;
     //
-    property AngleMode : TAngleMode read FAngleMode write SetAngleMode;
-    function FloatToAngle(const Val : Double) : Double;
+    property AngleMode: TAngleMode read FAngleMode write SetAngleMode;
+    function FloatToAngle(const Val: Double): Double;
     //
-    property isScriptEnd : Boolean read FisScriptEnd write SetisScriptEnd;
+    property isScriptEnd: Boolean read FisScriptEnd write SetisScriptEnd;
   end;
 
-  // Процедура вызова функций ядра 
+  // Процедура вызова функций ядра
   PDictionaryProcedure = procedure(AKernel: TIfopKernel);
 
-  // Это запись в словаре форта 
-  TKernelDictionaryItemType = (itProcedure, // Вызов функции ядра 
+  // Это запись в словаре форта
+  TKernelDictionaryItemType = (itProcedure, // Вызов функции ядра
     itKeyword, // Выполнение последовательности инструкций ядра
-    itNativeProcedure, //выполнение внешней функции
-    itNativeMethod);   //выполнение метода какого-то внешнего объекта как функции
+    itNativeProcedure, // выполнение внешней функции
+    itNativeMethod); // выполнение метода какого-то внешнего объекта как функции
 
   TifopKernelDictionaryItem = class
   private
     FItemType: TKernelDictionaryItemType;
     FProcedure: PDictionaryProcedure;
-    FMethod : Pointer;
-    FMethodObject : Pointer;
+    FMethod: Pointer;
+    FMethodObject: Pointer;
     FKernel: TIfopKernel;
     FKeywordName: string;
-    FLine : string;
+    FLine: string;
     procedure SetKeywordName(const Value: string);
   public
     constructor Create(AKernel: TIfopKernel; AProcedure: Pointer); overload;
     constructor Create(AKernel: TIfopKernel; ALine: string); overload;
-    constructor Create(AKernel: TIfopKernel; AObject, AProc : Pointer; ArgIn, ArgOut : array of TIfopArg); overload;
+    constructor Create(AKernel: TIfopKernel; AObject, AProc: Pointer;
+      ArgIn, ArgOut: array of TIfopArg); overload;
     property ItemType: TKernelDictionaryItemType read FItemType;
 
     property Kernel: TIfopKernel read FKernel;
@@ -133,90 +145,93 @@ type
     procedure Execute;
 
     property KeywordName: string read FKeywordName write SetKeywordName;
-    property Line : string read FLine;
+    property Line: string read FLine;
   end;
 
 implementation
 
 { TIfopKernel }
 
-procedure SeparateString(ls : TStringList; Code : String);
+procedure SeparateString(ls: TStringList; Code: String);
 var
-  SPos : PChar;
-  CPos : PChar;
-  EPos : PChar;
-  isinStr : Boolean;
+  SPos: PChar;
+  CPos: PChar;
+  EPos: PChar;
+  isinStr: Boolean;
 begin
   Code := Code + #32;
-  SPos := Pchar(Code);
-  CPos := Pchar(Code);
-  EPos := Pchar(Code) + length(Code) - 1;
+  SPos := PChar(Code);
+  CPos := PChar(Code);
+  EPos := PChar(Code) + length(Code) - 1;
   repeat
-    //Пропускаем пробелы
-    while CPos^ = #32 do Inc(Cpos);
+    // Пропускаем пробелы
+    while CPos^ = #32 do
+      Inc(CPos);
 {$REGION 'Комментарии'}
-      if CPos^ = '(' then
-      begin
-        SPos := CPos;
-        //inc(CPos);
-        repeat
-          Inc(CPos);
-        until CPos^ = ')';
-        //ls.Add(Copy(SPos, 0, Cpos - Spos + 1));
-        inc(Cpos);
-        Continue;
-      end;
+    if CPos^ = '(' then
+    begin
+      SPos := CPos;
+      // inc(CPos);
+      repeat
+        Inc(CPos);
+      until CPos^ = ')';
+      // ls.Add(Copy(SPos, 0, Cpos - Spos + 1));
+      Inc(CPos);
+      Continue;
+    end;
 {$ENDREGION}
 {$REGION 'Строки'}
-      if CPos^ = '"' then
-      begin
-        SPos := CPos;
-        //inc(CPos);
-        repeat
-          Inc(CPos);
-        until CPos^ = '"';
-        ls.Add(Copy(SPos, 0, Cpos - Spos + 1));
-        inc(Cpos);
-        Continue;
-      end;
+    if CPos^ = '"' then
+    begin
+      SPos := CPos;
+      // inc(CPos);
+      repeat
+        Inc(CPos);
+      until CPos^ = '"';
+      ls.Add(Copy(SPos, 0, CPos - SPos + 1));
+      Inc(CPos);
+      Continue;
+    end;
 {$ENDREGION}
 {$REGION 'Декларация атома'}
-      if CPos^ = ':' then
-      begin
-        SPos := CPos;
-        repeat
-          inc(Cpos);
-          //Строка
-          if Cpos^='"' then begin
-            repeat
-              inc(CPos)
-            until (CPos='"')or(CPos=EPos);
-          end;
-          //или коомментарий
-          if Cpos^='(' then begin
-            repeat
-              inc(CPos)
-            until (CPos=')')or(CPos=EPos);
-          end;
-        until (CPos^ = ';')or(CPos=EPos);
-        ls.Add(Copy(SPos, 0, Cpos - Spos + 1));
-        inc(Cpos);
-        Continue;
-      end;
+    if CPos^ = ':' then
+    begin
+      SPos := CPos;
+      repeat
+        Inc(CPos);
+        // Строка
+        if CPos^ = '"' then
+        begin
+          repeat
+            Inc(CPos)
+          until (CPos = '"') or (CPos = EPos);
+        end;
+        // или коомментарий
+        if CPos^ = '(' then
+        begin
+          repeat
+            Inc(CPos)
+          until (CPos = ')') or (CPos = EPos);
+        end;
+      until (CPos^ = ';') or (CPos = EPos);
+      ls.Add(Copy(SPos, 0, CPos - SPos + 1));
+      Inc(CPos);
+      Continue;
+    end;
 {$ENDREGION}
 {$REGION 'Атомы'}
-      if CPos^ <> #32 then
-          begin
-            SPos := CPos;
-            repeat
-              Inc(CPos);
-            until (CPos^ = #32)or(CPos = EPos);
-            ls.Add(Copy(SPos, 0, Cpos - Spos));
-            inc(Cpos);
-            Continue;
-          end;
+    if CPos^ <> #32 then
+    begin
+      SPos := CPos;
+      repeat
+        Inc(CPos);
+      until (CPos^ = #32) or (CPos = EPos);
+      ls.Add(Copy(SPos, 0, CPos - SPos));
+      Inc(CPos);
+      Continue;
+    end;
 {$ENDREGION}
-    //Continue;
+    // Continue;
   until CPos >= EPos;
 end;
 
@@ -226,21 +241,38 @@ var
   i: Integer;
   Token: String;
   N: Integer;
-  F: double;
-  NewItem : TIfopVariant;
+  F: Double;
+  NewItem: TIfopVariant;
   NewAtom: TifopKernelDictionaryItem;
 begin
-  if ACode = '' then exit;
+  if ACode = '' then
+    exit;
   try
     Tk := TStringList.Create;
     SeparateString(Tk, ACode);
-//    ACode := StringReplace(ACode, #9, #32, [rfReplaceAll]);
-//    Tk.Text := StringReplace(ACode, #32, #13#10, [rfReplaceAll]);
-    for i := 0 to Tk.Count - 1 do
-    begin
+    // ACode := StringReplace(ACode, #9, #32, [rfReplaceAll]);
+    // Tk.Text := StringReplace(ACode, #32, #13#10, [rfReplaceAll]);
+    i := -1;
+    repeat
+      // Переходим на следующую строку
+      Inc(i);
+      if i > Tk.Count - 1 then
+        break;
+      // Получаем следующий токен
       Token := Tk[i];
-      if ExecuteToken(Token) then continue;
+      // Текущая строка и текущая очередь команд
+      FCourientTkLine := i;
+      FCourientTk := Tk;
 
+      // Если это атом из библиотеки то выполняем его и переходим к следующему
+      if ExecuteToken(Token) then
+      begin
+        // кое кто может поменять текущее положение ;)
+        i := FCourientTkLine;
+        Continue;
+      end;
+
+      // Если это целое число, то добавляем его в стек
       if TryStrToInt(Token, N) then
       begin
         NewItem := TifopIntegerVariant.Create;
@@ -248,7 +280,7 @@ begin
         Push(NewItem);
         Continue;
       end;
-
+      // Добавляем вещественное число в стек
       if TryStrToFloat(Token, F) then
       begin
         NewItem := TifopFloatVariant.Create;
@@ -256,24 +288,24 @@ begin
         Push(NewItem);
         Continue;
       end;
-
+      // Добавляем новый атом в словарь
       if (Token[1] = ':') then
       begin
         NewAtom := TifopKernelDictionaryItem.Create(Self, Token);
-        FDictionary.InsertObject(0,NewAtom.KeywordName, NewAtom);
-        continue;
+        FDictionary.InsertObject(0, NewAtom.KeywordName, NewAtom);
+        Continue;
       end;
-
-      if (Token[1] = '"')and(Token[Length(Token)] = '"') then
+      // Добавляем строку в стек
+      if (Token[1] = '"') and (Token[length(Token)] = '"') then
       begin
         NewItem := TifopStringVariant.Create;
-        NewItem.StrValue := Copy(Token, 2, Length(Token) - 2);
+        NewItem.StrValue := Copy(Token, 2, length(Token) - 2);
         Push(NewItem);
-        continue;
+        Continue;
       end;
-
+      // Иначе пишем что не знаем что это за слово
       raise Exception.Create(Format('Uncnown token "%s"', [Token]));
-    end;
+    until false;
 
   finally
     Tk.Free;
@@ -290,11 +322,17 @@ begin
   ifopSystem.RegisterDictionary(Self);
   ifopOle.RegisterDictionary(Self);
   ifopRegExp.RegisterDictionary(Self);
+  ifopLogic.RegisterDictionary(Self);
 end;
 
 procedure TIfopKernel.SetAngleMode(const Value: TAngleMode);
 begin
   FAngleMode := Value;
+end;
+
+procedure TIfopKernel.SetCourientTkLine(const Value: Integer);
+begin
+  FCourientTkLine := Value;
 end;
 
 procedure TIfopKernel.SetisScriptEnd(const Value: Boolean);
@@ -355,9 +393,9 @@ begin
     exit;
   end;
   SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
-    // FOREGROUND_BLUE or 
+    // FOREGROUND_BLUE or
     FOREGROUND_GREEN or
-    // FOREGROUND_RED or 
+    // FOREGROUND_RED or
       FOREGROUND_INTENSITY);
   if ReturnLn then
     Writeln(AString)
@@ -374,12 +412,13 @@ begin
   FDictionary.InsertObject(0, AKeyword, NewItem);
 end;
 
-procedure TIfopKernel.AddMethod(const AKeyword: string; AObject, AProc: Pointer;
-  ArgsIn, ArgsOut: array of TIfopArg);
+procedure TIfopKernel.AddMethod(const AKeyword: string;
+  AObject, AProc: Pointer; ArgsIn, ArgsOut: array of TIfopArg);
 var
   NewItem: TifopKernelDictionaryItem;
 begin
-  NewItem := TifopKernelDictionaryItem.Create(Self, AObject, Aproc, ArgsIn, ArgsOut);
+  NewItem := TifopKernelDictionaryItem.Create
+    (Self, AObject, AProc, ArgsIn, ArgsOut);
   NewItem.KeywordName := AKeyword;
   FDictionary.InsertObject(0, AKeyword, NewItem);
 end;
@@ -388,6 +427,7 @@ constructor TIfopKernel.Create;
 begin
   inherited Create;
   FStack := TList.Create;
+  FRetStack := TList.Create;
   FDictionary := TStringList.Create;
   FCode := TStringList.Create;
   FCommands := TList.Create;
@@ -440,6 +480,12 @@ begin
     ClearListWithObjects(FCommands);
     FCommands.Free;
   end;
+
+  if (Assigned(FRetStack)) then
+  begin
+    FRetStack.Free;
+  end;
+
   inherited;
 end;
 
@@ -449,7 +495,7 @@ var
 begin
   Index := FDictionary.IndexOf(AToken);
   if Index = -1 then
-    Exit(false);
+    exit(false);
   TifopKernelDictionaryItem(FDictionary.Objects[Index]).Execute;
   Result := true;
 end;
@@ -457,9 +503,12 @@ end;
 function TIfopKernel.FloatToAngle(const Val: Double): Double;
 begin
   case AngleMode of
-    amDeg: Result := DegToRad(Val);
-    amRad: Result := Val;
-    amGrad: Result := GradToRad(Val);
+    amDeg:
+      Result := DegToRad(Val);
+    amRad:
+      Result := Val;
+    amGrad:
+      Result := GradToRad(Val);
   end;
 end;
 
@@ -479,6 +528,11 @@ begin
   Result := FDictionary.Count;
 end;
 
+function TIfopKernel.GetRet: Integer;
+begin
+  Result := Integer(FRetStack[0]);
+end;
+
 function TIfopKernel.GetStack(const index: Integer): TIfopVariant;
 begin
   Result := FStack[Index];
@@ -496,7 +550,6 @@ begin
   Result := FStack[0];
   FStack.Delete(0);
 end;
-
 
 function TIfopKernel.PopFloat: Double;
 var
@@ -522,6 +575,12 @@ begin
   end;
 end;
 
+function TIfopKernel.PopRet: Integer;
+begin
+  Result := Integer(FRetStack[0]);
+  FRetStack.Delete(0);
+end;
+
 function TIfopKernel.PopStr: string;
 var
   v: TIfopVariant;
@@ -539,39 +598,44 @@ begin
   FStack.Insert(0, AItem);
 end;
 
-procedure TIfopKernel.PushFloat(const val: Double);
+procedure TIfopKernel.PushFloat(const Val: Double);
 var
   v: TIfopVariant;
 begin
   try
     v := TifopFloatVariant.Create;
-    v.FloatValue := val;
+    v.FloatValue := Val;
   finally
-    push(v);
+    Push(v);
   end;
 end;
 
-procedure TIfopKernel.PushInt(const val: Integer);
+procedure TIfopKernel.PushInt(const Val: Integer);
 var
   v: TIfopVariant;
 begin
   try
     v := TifopIntegerVariant.Create;
-    v.IntValue := val;
+    v.IntValue := Val;
   finally
-    push(v);
+    Push(v);
   end;
 end;
 
-procedure TIfopKernel.PushStr(const val: string);
+procedure TIfopKernel.PushRet(const Addr: Integer);
+begin
+  FRetStack.Insert(0, Pointer(Addr));
+end;
+
+procedure TIfopKernel.PushStr(const Val: string);
 var
   v: TIfopVariant;
 begin
   try
     v := TifopStringVariant.Create;
-    v.StrValue := val;
+    v.StrValue := Val;
   finally
-    push(v);
+    Push(v);
   end;
 end;
 
@@ -594,8 +658,10 @@ begin
   inherited Create;
   FKernel := AKernel;
   FItemType := itKeyword;
-  if ALine[1] = ':' then Delete(ALine, 1, 1);
-  if ALine[Length(ALine)] = ';' then Delete(ALine, Length(ALine), 1);
+  if ALine[1] = ':' then
+    Delete(ALine, 1, 1);
+  if ALine[length(ALine)] = ';' then
+    Delete(ALine, length(ALine), 1);
   SpPos := Pos(#32, ALine);
   if SpPos = 0 then
     raise Exception.Create('Empty athom');
@@ -604,8 +670,8 @@ begin
   FLine := ALine;
 end;
 
-constructor TifopKernelDictionaryItem.Create(AKernel: TIfopKernel; AObject,
-  AProc: Pointer; ArgIn, ArgOut: array of TIfopArg);
+constructor TifopKernelDictionaryItem.Create(AKernel: TIfopKernel;
+  AObject, AProc: Pointer; ArgIn, ArgOut: array of TIfopArg);
 begin
   FMethod := AProc;
   FMethodObject := AObject;
@@ -614,8 +680,8 @@ end;
 
 procedure TifopKernelDictionaryItem.Execute;
 var
-  obj: pointer;
-  proc: pointer;
+  obj: Pointer;
+  proc: Pointer;
 begin
   case ItemType of
     itProcedure:

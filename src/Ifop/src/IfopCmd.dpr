@@ -13,7 +13,8 @@ uses
   ifopStack in 'Ifop\std\ifopStack.pas',
   ifopSystem in 'Ifop\std\ifopSystem.pas',
   ifopOle in 'Ifop\std\ifopOle.pas',
-  ifopRegExp in 'Ifop\std\ifopRegExp.pas';
+  ifopRegExp in 'Ifop\std\ifopRegExp.pas',
+  ifopLogic in 'Ifop\std\ifopLogic.pas';
 
 var
   Kernel: TIfopKernel;
