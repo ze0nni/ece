@@ -108,6 +108,16 @@ begin
     Kernel.stdout(IntToStr(i) + ':'#9 + Kernel.Stack[i].StrValue);
 end;
 
+//Удаляет следующее за ним слово из словаря, и все слова созданные ранее
+procedure ifopForget(Kernel: TIfopKernel);
+begin
+  if Kernel.CourientTkLine = Kernel.CourientTk.Count -1 then
+    raise Exception.Create('No athom after forget');
+  kernel.Forget(Kernel.CourientTk[Kernel.CourientTkLine + 1]);
+
+  Kernel.CourientTkLine := Kernel.CourientTkLine + 1;
+end;
+
 procedure RegisterDictionary(AKernel: TObject);
 var
   Kernel: TIfopKernel;
@@ -125,6 +135,8 @@ begin
   Kernel.AddKeyword('2drop', @ifop2Drop);
   Kernel.AddKeyword('Pick', @ifopPick);
   Kernel.AddKeyword('.s', @ifop2ViewStack);
+
+  Kernel.AddKeyword('forget', @ifopForget);
 end;
 
 end.

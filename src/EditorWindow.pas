@@ -877,10 +877,16 @@ var
     Tk: TTokenClass;
     FontStyle: String;
   begin
+    {TODO -oOnni -cGeneral : Добавить возможность наследования,
+      например что бы Comments.Line брал в качестве значений
+      по-умолчанию значения Comments}
     Tk := Tokens.NewToken(AStyle, ttWord);
+    //Фон
     Tk.BkColor := bf.IntValue(AStyle + '.Background.Color',
       Self.BackgroundColor);
+    //Текст
     Tk.TextColor := bf.IntValue(AStyle + '.Text.Color', Self.TextColor);
+    //Стиль
     FontStyle := bf.StrValue(AStyle + '.Text.Style', 'Normal');
     if pos('Bold', FontStyle) <> 0 then
       Tk.FontStyle := Tk.FontStyle or 1;
@@ -905,6 +911,7 @@ begin
   ReadStyle('Comments.Block');
   ReadStyle('Keywords');
   ReadStyle('Commands');
+  ReadStyle('Operator');
   ReadStyle('Strings');
   ReadStyle('Symbols');
   ReadStyle('Symbols.Hover');

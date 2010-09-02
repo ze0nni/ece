@@ -421,6 +421,21 @@ begin
   Kernel.PushFloat(logn(v2, v1));
 end;
 
+procedure ifopRnd(Kernel : TIfopKernel);
+begin
+  Kernel.PushFloat(random);
+end;
+
+procedure ifopRandomize(Kernel : TIfopKernel);
+begin
+  Randomize;
+end;
+
+procedure ifopRndSeed(Kernel : TIfopKernel);
+begin
+  RandSeed := Kernel.PopInt;
+end;
+
 procedure RegisterDictionary(AKernel : TObject);
 var
   Kernel : TIfopKernel;
@@ -468,6 +483,10 @@ begin
   Kernel.AddKeyword('sqrt', @ifopSqrt);
   Kernel.AddKeyword('power', @ifopPower);
   Kernel.AddKeyword('logn', @ifopLogn);
+
+  Kernel.AddKeyword('rnd', @ifopRnd);
+  Kernel.AddKeyword('randomize', @ifopRandomize);
+  Kernel.AddKeyword('RndSeed', @ifopRndSeed);
 end;
 
 end.

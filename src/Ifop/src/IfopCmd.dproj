@@ -54,6 +54,10 @@
 			<DCCReference Include="Ifop\std\ifopOle.pas"/>
 			<DCCReference Include="Ifop\std\ifopRegExp.pas"/>
 			<DCCReference Include="Ifop\std\ifopLogic.pas"/>
+			<RcItem Include="icon.ico">
+				<ResourceType>Icon</ResourceType>
+				<ResourceId>ApplicationIcon</ResourceId>
+			</RcItem>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
 			</BuildConfiguration>

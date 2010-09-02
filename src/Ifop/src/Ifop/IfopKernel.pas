@@ -37,15 +37,17 @@ type
   private
     // Стек
     FStack: TList;
-    //Стек адресов возврата
-    FRetStack : TList;
+    // Стек адресов возврата
+    FRetStack: TList;
     // Словарь
     FDictionary: TStringList;
+    FDictionaryForgetLimit: Integer;
     // Тут будут храниться строки при добавлении
     FCode: TStringList;
     // Тут будут "откомплированные" инструкции
     FCommands: TList;
     FisScriptEnd: Boolean;
+    FAbortCmd : Boolean;
     FAngleMode: TAngleMode;
     // IO
     FStdOutData: Pointer;
@@ -75,6 +77,7 @@ type
     procedure AddKeyword(const AKeyword: string; AProc: Pointer);
     procedure AddMethod(const AKeyword: string; AObject, AProc: Pointer;
       ArgsIn, ArgsOut: array of TIfopArg);
+    procedure Forget(AAThom: string);
     //
     procedure stdin(var AString: string; ReturnLn: Boolean = true);
     procedure stdout(AString: string; ReturnLn: Boolean = true);
@@ -90,12 +93,14 @@ type
       : TIfopVariant read GetStack write SetStack;
     procedure Push(const AItem: TIfopVariant); overload;
     function Pop: TIfopVariant; overload;
-    //Ret
-    procedure PushRet(const Addr : Integer);
-    function  PopRet : Integer;
-    function  GetRet : Integer;
+    // Ret
+    procedure PushRet(const Addr: Integer);
+    function PopRet: Integer;
+    function GetRet: Integer;
     //
-    property CourientTkLine: Integer read FCourientTkLine write SetCourientTkLine;
+    property CourientTkLine
+      : Integer read FCourientTkLine write SetCourientTkLine;
+    property CourientTk: TStringList read FCourientTk;
     //
     procedure PushInt(const Val: Integer);
     function PopInt: Integer;
@@ -112,6 +117,7 @@ type
     function FloatToAngle(const Val: Double): Double;
     //
     property isScriptEnd: Boolean read FisScriptEnd write SetisScriptEnd;
+    procedure Abort;
   end;
 
   // Процедура вызова функций ядра
@@ -163,21 +169,40 @@ begin
   SPos := PChar(Code);
   CPos := PChar(Code);
   EPos := PChar(Code) + length(Code) - 1;
+
+  // Заменяем все "лишние" символы пробелам
+//  while CPos <> EPos do
+//  begin
+//    if CPos^ in [#9, #10, #13] then
+//      CPos^ := #32;
+//    inc(CPos);
+//  end;
+//  CPos := SPos;
+
   repeat
+    if CPos = EPos then
+      break;
+
     // Пропускаем пробелы
-    while CPos^ = #32 do
-      Inc(CPos);
+{$REGION 'Пустые строки'}
+    if CPos^ in [#9, #10, #13, #32] then
+    begin
+      while (CPos^ in [#9, #10, #13, #32]) and (CPos <> EPos) do
+        inc(CPos);
+      continue;
+    end;
+{$ENDREGION}
 {$REGION 'Комментарии'}
     if CPos^ = '(' then
     begin
       SPos := CPos;
       // inc(CPos);
       repeat
-        Inc(CPos);
+        inc(CPos);
       until CPos^ = ')';
       // ls.Add(Copy(SPos, 0, Cpos - Spos + 1));
-      Inc(CPos);
-      Continue;
+      inc(CPos);
+      continue;
     end;
 {$ENDREGION}
 {$REGION 'Строки'}
@@ -186,11 +211,11 @@ begin
       SPos := CPos;
       // inc(CPos);
       repeat
-        Inc(CPos);
+        inc(CPos);
       until CPos^ = '"';
       ls.Add(Copy(SPos, 0, CPos - SPos + 1));
-      Inc(CPos);
-      Continue;
+      inc(CPos);
+      continue;
     end;
 {$ENDREGION}
 {$REGION 'Декларация атома'}
@@ -198,41 +223,48 @@ begin
     begin
       SPos := CPos;
       repeat
-        Inc(CPos);
+        inc(CPos);
         // Строка
         if CPos^ = '"' then
         begin
           repeat
-            Inc(CPos)
-          until (CPos = '"') or (CPos = EPos);
+            inc(CPos)
+          until (CPos^ = '"') or (CPos = EPos);
         end;
         // или коомментарий
         if CPos^ = '(' then
         begin
           repeat
-            Inc(CPos)
-          until (CPos = ')') or (CPos = EPos);
+            inc(CPos)
+          until (CPos^ = ')') or (CPos = EPos);
         end;
+        { TODO -oOnni -cGeneral : Атом внутри атома }
       until (CPos^ = ';') or (CPos = EPos);
-      ls.Add(Copy(SPos, 0, CPos - SPos + 1));
-      Inc(CPos);
-      Continue;
+
+      ls.Add(Copy(SPos, 0, CPos - SPos));
+      inc(CPos);
+      continue;
     end;
 {$ENDREGION}
 {$REGION 'Атомы'}
-    if CPos^ <> #32 then
+    if not(CPos^ in [#9, #10, #13, #32]) then
     begin
       SPos := CPos;
       repeat
-        Inc(CPos);
-      until (CPos^ = #32) or (CPos = EPos);
+        inc(CPos);
+      until (CPos^ in [#9, #10, #13, #32]) or (CPos = EPos);
       ls.Add(Copy(SPos, 0, CPos - SPos));
-      Inc(CPos);
-      Continue;
+      inc(CPos);
+      continue;
     end;
 {$ENDREGION}
     // Continue;
   until CPos >= EPos;
+end;
+
+procedure TIfopKernel.Abort;
+begin
+  FAbortCmd := true;
 end;
 
 procedure TIfopKernel.AddCode(ACode: string);
@@ -244,9 +276,12 @@ var
   F: Double;
   NewItem: TIfopVariant;
   NewAtom: TifopKernelDictionaryItem;
+  FLastLine: Integer;
 begin
+  FAbortCmd := false;
   if ACode = '' then
     exit;
+  FLastLine := FCourientTkLine;
   try
     Tk := TStringList.Create;
     SeparateString(Tk, ACode);
@@ -254,8 +289,13 @@ begin
     // Tk.Text := StringReplace(ACode, #32, #13#10, [rfReplaceAll]);
     i := -1;
     repeat
+      if FAbortCmd then
+      begin
+        FAbortCmd := false;
+        exit;
+      end;
       // Переходим на следующую строку
-      Inc(i);
+      inc(i);
       if i > Tk.Count - 1 then
         break;
       // Получаем следующий токен
@@ -269,31 +309,14 @@ begin
       begin
         // кое кто может поменять текущее положение ;)
         i := FCourientTkLine;
-        Continue;
-      end;
-
-      // Если это целое число, то добавляем его в стек
-      if TryStrToInt(Token, N) then
-      begin
-        NewItem := TifopIntegerVariant.Create;
-        NewItem.IntValue := N;
-        Push(NewItem);
-        Continue;
-      end;
-      // Добавляем вещественное число в стек
-      if TryStrToFloat(Token, F) then
-      begin
-        NewItem := TifopFloatVariant.Create;
-        NewItem.FloatValue := F;
-        Push(NewItem);
-        Continue;
+        continue;
       end;
       // Добавляем новый атом в словарь
       if (Token[1] = ':') then
       begin
         NewAtom := TifopKernelDictionaryItem.Create(Self, Token);
         FDictionary.InsertObject(0, NewAtom.KeywordName, NewAtom);
-        Continue;
+        continue;
       end;
       // Добавляем строку в стек
       if (Token[1] = '"') and (Token[length(Token)] = '"') then
@@ -301,13 +324,30 @@ begin
         NewItem := TifopStringVariant.Create;
         NewItem.StrValue := Copy(Token, 2, length(Token) - 2);
         Push(NewItem);
-        Continue;
+        continue;
+      end;
+      // Если это целое число, то добавляем его в стек
+      if TryStrToInt(Token, N) then
+      begin
+        NewItem := TifopIntegerVariant.Create;
+        NewItem.IntValue := N;
+        Push(NewItem);
+        continue;
+      end;
+      // Добавляем вещественное число в стек
+      if TryStrToFloat(Token, F) then
+      begin
+        NewItem := TifopFloatVariant.Create;
+        NewItem.FloatValue := F;
+        Push(NewItem);
+        continue;
       end;
       // Иначе пишем что не знаем что это за слово
       raise Exception.Create(Format('Uncnown token "%s"', [Token]));
     until false;
 
   finally
+    FCourientTkLine := FLastLine;
     Tk.Free;
   end;
 end;
@@ -323,6 +363,7 @@ begin
   ifopOle.RegisterDictionary(Self);
   ifopRegExp.RegisterDictionary(Self);
   ifopLogic.RegisterDictionary(Self);
+  FDictionaryForgetLimit := FDictionary.Count;
 end;
 
 procedure TIfopKernel.SetAngleMode(const Value: TAngleMode);
@@ -367,7 +408,7 @@ begin
   SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),
     FOREGROUND_RED or FOREGROUND_INTENSITY);
   if ReturnLn then
-    Writeln(AString)
+    writeln(AString)
   else
     Write(AString);
 end;
@@ -382,7 +423,7 @@ begin
     FOREGROUND_BLUE or FOREGROUND_GREEN or FOREGROUND_RED);
   Readln(AString);
   if ReturnLn then
-    Writeln;
+    writeln;
 end;
 
 procedure TIfopKernel.stdout(AString: string; ReturnLn: Boolean = true);
@@ -398,7 +439,7 @@ begin
     // FOREGROUND_RED or
       FOREGROUND_INTENSITY);
   if ReturnLn then
-    Writeln(AString)
+    writeln(AString)
   else
     Write(AString);
 end;
@@ -515,6 +556,26 @@ end;
 function TIfopKernel.FloatToRad(const Val: Double): Double;
 begin
 
+end;
+
+procedure TIfopKernel.Forget(AAThom: string);
+var
+  index: Integer;
+  i: Integer;
+  item: TifopKernelDictionaryItem;
+begin
+  index := FDictionary.IndexOf(AAThom);
+  if index = -1 then
+    raise Exception.Create
+      (Format('Athom "%s" not found in dictionary', [AAThom]));
+  if (FDictionary.Count - index) <= FDictionaryForgetLimit then
+    raise Exception.Create(Format('Can''t forget athom "%s"', [AAThom]));
+  for i := 0 to index do
+  begin
+    item := TifopKernelDictionaryItem(FDictionary.Objects[0]);
+    item.Free;
+    FDictionary.Delete(0);
+  end;
 end;
 
 function TIfopKernel.GetDictionary(const Index: Integer)
@@ -662,8 +723,15 @@ begin
     Delete(ALine, 1, 1);
   if ALine[length(ALine)] = ';' then
     Delete(ALine, length(ALine), 1);
-  SpPos := Pos(#32, ALine);
-  if SpPos = 0 then
+  // SpPos := Pos(#32, ALine);
+  SpPos := 1;
+  repeat
+    inc(SpPos);
+    if ALine[SpPos] in [#9, #10, #13, #32] then
+      break;
+  until SpPos = length(ALine);
+
+  if (SpPos = 0) or (SpPos = length(ALine)) then
     raise Exception.Create('Empty athom');
   FKeywordName := Copy(ALine, 1, SpPos - 1);
   Delete(ALine, 1, SpPos);

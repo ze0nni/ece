@@ -1,6 +1,8 @@
 program IfopCmd;
 {$APPTYPE CONSOLE}
 
+{$R *.dres}
+
 uses
   Windows,
   Classes,
@@ -19,18 +21,56 @@ uses
 var
   Kernel: TIfopKernel;
   Cmd: string;
+
+procedure LoadStl;
+var
+  stl, lib : TStringList;
+  i: Integer;
+  Dir : string;
+begin
+  try
+    stl := TStringList.Create;
+    lib := TStringList.Create;
+    Dir := ExtractFilePath(ParamStr(0));
+    stl.LoadFromFile(dir + 'stl\order.stl');
+    for i := 0 to stl.Count - 1 do
+    begin
+      lib.LoadFromFile(dir + stl[i]);
+      Kernel.AddCode(lib.Text);
+    end;
+  finally
+    stl.Free;
+    lib.Free;
+  end;
+end;
+
+function ConProc(CtrlType: DWord): Bool; stdcall; far;
+begin
+  case CtrlType of
+    CTRL_C_EVENT:
+      begin
+        Kernel.Abort;
+      end
+      else
+      Exit(false)
+  end;
+  Result := True;
+end;
+
 begin
   SetConsoleCP(1251);
   SetConsoleOutputCP(1251);
   ReportMemoryLeaksOnShutdown := true;
+  SetConsoleCtrlHandler(@ConProc, true);
   try
     SetConsoleTitle('IForth processor');
     Kernel := TIfopKernel.Create;
+    LoadStl;
     repeat
       try
-        Cmd := '> ';
         writeln;
-        Kernel.stdin(Cmd);
+        Cmd := '> ';
+        Kernel.stdin(Cmd); {TODO -oOnni -cGeneral : Если в это момент нажать ctrl+c, будет глюк}
         Kernel.AddCode(Cmd);
       except
         on E: Exception do
