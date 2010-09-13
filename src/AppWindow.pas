@@ -3,6 +3,8 @@ unit AppWindow;
 
 interface
 
+{$I def.inc}
+
 uses
   Windows,
   Messages,
@@ -167,7 +169,10 @@ begin
   FConsole.SetFont('Consolas', 14);
   FConsole.Caret.Style := csClassic;
 
+  {$ifdef forth}
+  {$else}
   FConsole.Kernal.AddObject('Application', Self);
+  {$endif}
   RegisterName('Title', PROP_TITLE);
   RegisterName('Left', PROP_LEFT);
   RegisterName('Top', PROP_TOP);

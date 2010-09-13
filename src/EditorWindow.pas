@@ -25,6 +25,10 @@ uses
   math,
   eceSynParser;
 
+const
+  EDITOR_TIMER_SCROLL = 1;
+  TIMER_ELAPSE = 20;
+
 type
   TGutter = class;
 
@@ -41,15 +45,15 @@ type
   /// <summary>
   /// Класс - окна редкатора кода
   /// </summary>
-
-  TEceEditorState = (esEdit, esPanaram);
+{$DEFINE PanaramMode}
+{$UNDEF PanaramMode}
+  TEceEditorState = (esEdit, {$IFDEF PanaramMode} esPanaram
+{$ELSE} esPanaramScroll {$ENDIF});
 
   EEditorException = class(Exception);
 
-  TEceEditorWindow = class(TEceDocumentWindow, IEceDocument, IEceEditor,
-    IDispatch)
-  private
-    FFileName: string;
+    TEceEditorWindow = class(TEceDocumentWindow, IEceDocument, IEceEditor,
+      IDispatch)private FFileName: string;
     FFonts: array [0 .. 3] of HFont;
     FFontExtraSpace: array [0 .. 3] of integer;
     FLineModificationChecker: integer;
@@ -72,7 +76,9 @@ type
     FSyntaxParser: TEceSynParser;
     FState: TEceEditorState;
     FPanaramModeMousePt: TPoint; // Положение мыши при панарамировании
-
+{$IFNDEF PanaramMode}
+    FPanaramScrollInfo: TPoint; // Величина прокрутки
+{$ENDIF}
     Function GetCount: integer;
     Function GetStrings(const Index: integer): string;
     procedure SetStrings(const Index: integer; const value: string);
@@ -121,6 +127,9 @@ type
 
     procedure wmMouseWheel(var msg: TWMMouseWheel);
     message WM_MOUSEWHEEL;
+
+    procedure wmTimer(var msg: TWMTimer);
+    message WM_TIMER;
 
     procedure onVscroll(pos: integer; EndScroll: boolean); override;
     procedure onHscroll(pos: integer; EndScroll: boolean); override;
@@ -236,6 +245,7 @@ type
     FEditor: TEceEditorWindow;
     FisRollUp: boolean;
     FLevel: integer;
+    FSynState: TEceSynLineState;
     Function GetText: String;
     Procedure SetText(const value: String);
     procedure SetVisible(const value: boolean);
@@ -532,6 +542,17 @@ begin
   InvalidateRect(Handle, nil, false);
 end;
 
+procedure TEceEditorWindow.wmTimer(var msg: TWMTimer);
+begin
+  case msg.TimerID of
+    EDITOR_TIMER_SCROLL:
+      begin
+        OffsetX := OffsetX - FPanaramScrollInfo.X div 50;
+        OffsetY := OffsetY - FPanaramScrollInfo.Y div 50;
+      end;
+  end;
+end;
+
 function TEceEditorWindow._AddLine: IEceLine;
 begin
   Result := AddLine;
@@ -609,7 +630,20 @@ begin
       end;
     VK_DELETE:
       begin
-        Lines[Caret.Line].Delete(Caret.X + 1, 1);
+        if Caret.X < Lines[Caret.Line].Length then
+          // Удаляем символ
+          Lines[Caret.Line].Delete(Caret.X + 1, 1)
+        else
+        // Удаляем строку
+        begin
+          try
+            Lines[Caret.Line].Insert(Lines[Caret.Line + 1].Text, Caret.X + 1);
+            DeleteLine(Caret.Line + 1);
+            Invalidate;
+          except
+            // ну и не надо
+          end;
+        end;
       end;
   end;
 end;
@@ -689,8 +723,13 @@ begin
       case State of
         esEdit:
           SetCursor(LoadCursor(0, IDC_IBEAM));
+{$IFDEF PanaramMode}
         esPanaram:
+{$ELSE}
+        esPanaramScroll :
+{$ENDIF}
           SetCursor(LoadCursor(0, IDC_SIZEALL));
+
       end;
     end;
   end
@@ -732,10 +771,16 @@ end;
 
 procedure TEceEditorWindow.wmMButtonDown(var msg: TWmLbuttonDown);
 begin
+{$IFDEF PanaramMode}
   State := esPanaram;
+{$ELSE}
+  State := esPanaramScroll;
+{$ENDIF}
   SendMessage(Handle, WM_SETCURSOR, 0, MakeWParam(1, 0));
   FPanaramModeMousePt.X := msg.xPos;
   FPanaramModeMousePt.Y := msg.yPos;
+  FPanaramScrollInfo.x := 0;
+  FPanaramScrollInfo.y := 0;
   SetCapture(Handle);
 end;
 
@@ -759,6 +804,7 @@ begin
               div CharWidth) + OffsetX, (msg.yPos div CharHeight) + OffsetY);
       end;
 {$ENDREGION}
+{$IFDEF PanaramMode}
     esPanaram:
 {$REGION 'Движение в режиме панарамирования'}
       if GetCapture = Handle then
@@ -810,6 +856,13 @@ begin
           end;
           *)
       end;
+{$ELSE}
+    esPanaramScroll:
+      begin
+        FPanaramScrollInfo.x := FPanaramModeMousePt.X - msg.XPos;
+        FPanaramScrollInfo.y := FPanaramModeMousePt.Y - msg.YPos;
+      end;
+{$ENDIF}
 {$ENDREGION}
   end;
 end;
@@ -877,16 +930,16 @@ var
     Tk: TTokenClass;
     FontStyle: String;
   begin
-    {TODO -oOnni -cGeneral : Добавить возможность наследования,
+    { TODO -oOnni -cGeneral : Добавить возможность наследования,
       например что бы Comments.Line брал в качестве значений
-      по-умолчанию значения Comments}
+      по-умолчанию значения Comments }
     Tk := Tokens.NewToken(AStyle, ttWord);
-    //Фон
+    // Фон
     Tk.BkColor := bf.IntValue(AStyle + '.Background.Color',
       Self.BackgroundColor);
-    //Текст
+    // Текст
     Tk.TextColor := bf.IntValue(AStyle + '.Text.Color', Self.TextColor);
-    //Стиль
+    // Стиль
     FontStyle := bf.StrValue(AStyle + '.Text.Style', 'Normal');
     if pos('Bold', FontStyle) <> 0 then
       Tk.FontStyle := Tk.FontStyle or 1;
@@ -905,6 +958,7 @@ begin
   TextColor := bf.IntValue('Normal.Text.Color', $000000);
   // Грузим по очереди
   ReadStyle('Normal');
+  ReadStyle('Space');
   ReadStyle('Selection');
   ReadStyle('Comments');
   ReadStyle('Comments.Line');
@@ -993,8 +1047,8 @@ begin
   if @LoadProc = nil then
   begin
     FreeLibrary(hPlugin);
-    raise EEditorException.Create('GetPlugin не найден в таблице экспорта модуля ' +
-        AFileName);
+    raise EEditorException.Create(
+      'GetPlugin не найден в таблице экспорта модуля ' + AFileName);
   end;
 
   Plugin := LoadProc;
@@ -1105,7 +1159,7 @@ begin
         exit(DISP_E_MEMBERNOTFOUND)
       end;
 {$ENDREGION}
-  {$REGION 'Lines'}
+{$REGION 'Lines'}
     PROP_LINES:
       case Flags of
         DISPATCH_GET:
@@ -1142,8 +1196,8 @@ begin
       case Flags of
         DISPATCH_SUB:
           SetFont(Params[1], Params[0]);
-        else
-            exit(DISP_E_MEMBERNOTFOUND);
+      else
+        exit(DISP_E_MEMBERNOTFOUND);
       end;
 {$ENDREGION}
 {$REGION 'Caret'}
@@ -1184,13 +1238,23 @@ end;
 function TEceEditorWindow.GetVisibleLines(const index: integer): TLine;
 begin
   if (index < 0) or (index > FVisibleLines.Count - 1) then
-    raise EEditorException.Create(Format('Неверный индекс строки: %d.', [index]));
+    raise EEditorException.Create(Format('Неверный индекс строки: %d.', [index])
+      );
   Result := TLine(FVisibleLines[index]);
 end;
 
 procedure TEceEditorWindow.SetState(const value: TEceEditorState);
 begin
   FState := value;
+{$IFDEF PanaramMode}
+{$else}
+  case FState of
+    esEdit:
+      KillTimer(Handle, EDITOR_TIMER_SCROLL);
+    esPanaramScroll:
+      SetTimer(Handle, EDITOR_TIMER_SCROLL, TIMER_ELAPSE, nil);
+  end;
+{$ENDIF}
 end;
 
 procedure TEceEditorWindow.SetStrings(const Index: integer;
@@ -1208,7 +1272,8 @@ end;
 function TEceEditorWindow.GetLines(const index: integer): TLine;
 begin
   if (index < 0) or (index > Count - 1) then
-    raise EEditorException.Create(Format('Неверный индекс строки: %d.', [index]));
+    raise EEditorException.Create(Format('Неверный индекс строки: %d.', [index])
+      );
   Result := TLine(FLines[index]);
 end;
 
@@ -1314,12 +1379,13 @@ begin
     Pchar(AFont));
   SelectObject(DC, Fnt);
   GetTextMetrics(DC, Metrics);
-  if not (((Metrics.tmPitchAndFamily and ff_Modern) <> 0) and
+  if not(((Metrics.tmPitchAndFamily and ff_Modern) <> 0) and
       ((Metrics.tmPitchAndFamily and $01) = 0)) then
   begin
     ReleaseDC(0, DC);
     DeleteObject(Fnt);
-    raise EEditorException.Create(Format('Шрифт "%s" не является моноширным.', [AFont]));
+    raise EEditorException.Create
+      (Format('Шрифт "%s" не является моноширным.', [AFont]));
   end;
 
   ReleaseDC(0, DC);
@@ -1644,7 +1710,7 @@ begin
     Char := Pchar(FText) + StartChar;
     ChWidth := FEditor.CharWidth;
     // Выводим все символы
-    {TODO -oOnni -cGeneral : Добавить возможность выделения}
+    { TODO -oOnni -cGeneral : Добавить возможность выделения }
     if FTokens.Count = 0 then
     begin
 {$REGION 'Вывод без учета подсветки'}
@@ -1715,7 +1781,7 @@ end;
 Procedure TLine.SetText(const value: String);
 begin
   FText := value;
-  UpdateSyn;
+  // UpdateSyn;
   { todo: Известить об изменении }
 end;
 
@@ -1825,7 +1891,8 @@ begin
     FText := FText + ' ';
 
   System.Insert(AString, FText, AChar);
-  Invalidate;
+  { DONE -oOnni -cGeneral : Один лишний Invalidate }
+  // Invalidate;
 end;
 
 procedure TLine.Delete(AChar, ACount: integer);
@@ -1911,29 +1978,74 @@ begin
   FLineModificationChecker := FEditor.FLineModificationChecker;
 end;
 
+threadvar // Временные переменные для парсинга
+  ParceLeft: integer;
+ParceTkIndex :
+integer;
+
+procedure Parce(AObj: TLine; const AClassID, ALength: integer);
+var
+  Tk: TToken;
+begin
+  if ParceTkIndex >= AObj.FTokens.Count then
+  begin
+    Tk := TToken.Create(nil);
+    AObj.FTokens.Add(Tk);
+  end
+  else
+  begin
+    Tk := AObj.FTokens[ParceTkIndex];
+  end;
+
+  Tk.FirstChar := ParceLeft;
+  Tk.Length := ALength;
+  case AClassID of
+    0:
+      Tk.FTokenClass := AObj.FEditor.Tokens['space'];
+    1:
+      Tk.FTokenClass := AObj.FEditor.Tokens['normal'];
+    2:
+      Tk.FTokenClass := AObj.FEditor.Tokens['Symbols'];
+    3:
+      Tk.FTokenClass := AObj.FEditor.Tokens['Operator'];
+  end;
+
+  inc(ParceTkIndex);
+  inc(ParceLeft, ALength);
+end;
+
 procedure TLine.UpdateSyn;
 var
-  index: integer;
-  Tk: TToken;
   i: integer;
 begin
-  for i := 0 to FTokens.Count - 1 do
-    TToken(FTokens[i]).Free;
-  FTokens.Clear;
-
-  index := pos('//', Text);
-  if index <> 0 then
+  ParceLeft := 0;
+  ParceTkIndex := 0;
+  FEditor.FSyntaxParser.ParseLine(Text, FSynState, Self, @Parce);
+  // лишние удаляем
+  for i := FTokens.Count - 1 downto ParceTkIndex do
   begin
-    Tk := TToken.Create(FEditor.FTokens['normal']);
-    FTokens.Add(Tk);
-    Tk.FFirstChar := 0;
-    Tk.Length := index - 1;
-
-    Tk := TToken.Create(FEditor.FTokens['Comments']);
-    FTokens.Add(Tk);
-    Tk.FFirstChar := index - 1;
-    Tk.Length := Length - index + 1;
+    TToken(FTokens[i]).Free;
+    FTokens.Delete(i);
   end;
+{$REGION 'Old'}
+  // for i := 0 to FTokens.Count - 1 do
+  // TToken(FTokens[i]).Free;
+  // FTokens.Clear;
+  //
+  // index := pos('//', Text);
+  // if index <> 0 then
+  // begin
+  // Tk := TToken.Create(FEditor.FTokens['normal']);
+  // FTokens.Add(Tk);
+  // Tk.FFirstChar := 0;
+  // Tk.Length := index - 1;
+  //
+  // Tk := TToken.Create(FEditor.FTokens['Comments']);
+  // FTokens.Add(Tk);
+  // Tk.FFirstChar := index - 1;
+  // Tk.Length := Length - index + 1;
+  // end;
+{$ENDREGION}
 end;
 
 { TCaret }
@@ -1964,11 +2076,14 @@ end;
 procedure TCaret.SetY(const value: integer);
 begin
   try
-  FEditor.Lines[Y].Invalidate;
-  except end;
+    FEditor.Lines[Y].Invalidate;
+  except
+  end;
   Fy := value;
-  try FEditor.Lines[Y].Invalidate;
-  except end;
+  try
+    FEditor.Lines[Y].Invalidate;
+  except
+  end;
   if Fy < 0 then
     Fy := 0;
   if Fy > FEditor.FVisibleLines.Count - 1 then
@@ -2088,7 +2203,7 @@ begin
       OffsetY := Fy - CharsInHeight + 1;
   end;
   // Выделяем или нет
-  //TODO: При знятии выделения, нужно обновить все ранее выделенные строки
+  // TODO: При знятии выделения, нужно обновить все ранее выделенные строки
   if not SelectionMode then
   begin
     FSelStartX := Fx;

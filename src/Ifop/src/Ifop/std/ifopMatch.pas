@@ -83,17 +83,14 @@ begin
   v1 := Kernel.Pop;
   v2 := Kernel.Pop;
   case v2.VariantType of
-    vtInteger:
-      v2.IntValue := v2.IntValue div v1.IntValue;
-    vbPointer:
-      {TODO -oOnni -cGeneral : Float math};
+    vtInteger,
     vtFloat:
-      v2.FloatValue := v2.FloatValue / v1.FloatValue;
+      Kernel.PushFloat(v2.FloatValue / v1.FloatValue);
     else
       raise Exception.Create('Bad types for div');
   end;
-  Kernel.Push(v2);
   v1.Free;
+  v2.Free;
 end;
 
 procedure ifopMod(Kernel: TIfopKernel);

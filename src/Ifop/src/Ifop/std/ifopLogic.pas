@@ -94,7 +94,10 @@ begin
         if CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, 'if', 2, pchar(token), ln) = CSTR_EQUAL then
         begin
           inc(ifThenLevel)
-        end;
+        end else
+            begin
+
+            end;
         if CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, 'then', 4, pchar(token), ln) = CSTR_EQUAL then
         begin
           dec(ifThenLevel)
