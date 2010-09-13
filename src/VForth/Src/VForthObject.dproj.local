@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2010.09.06 10:14:21.653.dproj,C:\Users\Евгений\Documents\RAD Studio\Projects\Project1.dproj=D:\projects\VForth\Src\VForth.dproj</Transaction>
+    <Transaction>2010.09.06 10:17:35.944.dproj,D:\projects\VForth\Src\VForth.dproj=D:\projects\VForth\Src\VForthObject.dproj</Transaction>
+    <Transaction>2010.09.06 10:44:32.217.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\AutoObject.pas</Transaction>
+  </Transactions>
+</BorlandProject>

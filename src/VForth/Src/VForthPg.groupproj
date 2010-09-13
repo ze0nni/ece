@@ -1,0 +1,48 @@
+﻿	<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+		<PropertyGroup>
+			<ProjectGuid>{F1D06DA5-E70A-4026-9BC1-3E98ADDCDC14}</ProjectGuid>
+		</PropertyGroup>
+		<ItemGroup>
+			<Projects Include="VForthCmd.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="VForthObject.dproj">
+				<Dependencies/>
+			</Projects>
+		</ItemGroup>
+		<ProjectExtensions>
+			<Borland.Personality>Default.Personality.12</Borland.Personality>
+			<Borland.ProjectType/>
+			<BorlandProject>
+				<Default.Personality/>
+			</BorlandProject>
+		</ProjectExtensions>
+		<Target Name="VForthCmd">
+			<MSBuild Projects="VForthCmd.dproj"/>
+		</Target>
+		<Target Name="VForthCmd:Clean">
+			<MSBuild Targets="Clean" Projects="VForthCmd.dproj"/>
+		</Target>
+		<Target Name="VForthCmd:Make">
+			<MSBuild Targets="Make" Projects="VForthCmd.dproj"/>
+		</Target>
+		<Target Name="VForthObject">
+			<MSBuild Projects="VForthObject.dproj"/>
+		</Target>
+		<Target Name="VForthObject:Clean">
+			<MSBuild Targets="Clean" Projects="VForthObject.dproj"/>
+		</Target>
+		<Target Name="VForthObject:Make">
+			<MSBuild Targets="Make" Projects="VForthObject.dproj"/>
+		</Target>
+		<Target Name="Build">
+			<CallTarget Targets="VForthCmd;VForthObject"/>
+		</Target>
+		<Target Name="Clean">
+			<CallTarget Targets="VForthCmd:Clean;VForthObject:Clean"/>
+		</Target>
+		<Target Name="Make">
+			<CallTarget Targets="VForthCmd:Make;VForthObject:Make"/>
+		</Target>
+		<Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+	</Project>

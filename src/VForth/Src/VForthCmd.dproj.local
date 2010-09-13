@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2010.09.03 08:02:18.684.dproj,C:\Users\Евгений\Documents\RAD Studio\Projects\Project1.dproj=D:\projects\VForth\Src\VForthCmd.dproj</Transaction>
+    <Transaction>2010.09.03 08:02:59.122.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForth.pas</Transaction>
+    <Transaction>2010.09.03 08:25:28.357.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthMachine.pas</Transaction>
+    <Transaction>2010.09.03 08:36:29.075.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthVariants.pas</Transaction>
+    <Transaction>2010.09.03 09:52:01.867.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthVariantInteger.pas</Transaction>
+    <Transaction>2010.09.03 09:53:02.392.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthVariantFloat.pas</Transaction>
+    <Transaction>2010.09.03 09:53:41.883.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthVariantNatural.pas</Transaction>
+    <Transaction>2010.09.03 09:54:06.567.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthVariantComplex.pas</Transaction>
+    <Transaction>2010.09.03 09:55:00.684.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthVariantString.pas</Transaction>
+    <Transaction>2010.09.03 10:44:21.827.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthModuleSystem.pas</Transaction>
+    <Transaction>2010.09.03 10:49:34.173.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthAthom.pas</Transaction>
+    <Transaction>2010.09.03 12:34:58.895.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthModuleIo.pas</Transaction>
+    <Transaction>2010.09.03 13:23:23.919.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthModuleMath.pas</Transaction>
+    <Transaction>2010.09.03 13:48:16.758.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthModuleLogic.pas</Transaction>
+    <Transaction>2010.09.05 00:56:52.829.pas,H:\Проекты\VForth\Src\Unit1.pas=H:\Проекты\VForth\Src\VForthModule.pas</Transaction>
+    <Transaction>2010.09.06 08:17:49.294.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthModuleDateTime.pas</Transaction>
+    <Transaction>2010.09.06 09:29:38.756.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\StoHtmlHelp.pas</Transaction>
+    <Transaction>2010.09.06 15:16:17.707.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthVariantArray.pas</Transaction>
+    <Transaction>2010.09.13 08:06:30.717.pas,D:\projects\VForth\Src\Unit1.pas=D:\projects\VForth\Src\VForthModuleWin32.pas</Transaction>
+  </Transactions>
+</BorlandProject>
