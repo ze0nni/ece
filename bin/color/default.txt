@@ -3,6 +3,11 @@ Normal.Background.Transparent=False
 Normal.Text.Color=$A0C0C0
 Normal.Text.Style=Normal
 
+Space.Background.Color=$404040
+Space.Background.Transparent=False
+Space.Text.Color=$A0C0C0
+Space.Text.Style=Normal
+
 Selection.Background.Color=$0080a0
 Selection.Background.Transparent=False
 Selection.Text.Color=$203040
@@ -16,3 +21,22 @@ Comments.Text.Style=Italic
 Keywords.Background.Transparent=True
 Keywords.Text.Color=$8080e0
 Keywords.Text.Style=Bold
+
+Commands
+
+Operator.Background.Color=$404040
+Operator.Background.Transparent=False
+Operator.Text.Color=$80e0e0
+Operator.Text.Style=Normal
+
+Strings.Background.Color=$404040
+Strings.Background.Transparent=False
+Strings.Text.Color=$8080e0
+Strings.Text.Style=Normal
+
+Symbols.Background.Color=$404040
+Symbols.Background.Transparent=False
+Symbols.Text.Color=$6080a0
+Symbols.Text.Style=Normal
+
+Numbers
