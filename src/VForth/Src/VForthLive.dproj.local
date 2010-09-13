@@ -1,8 +1,0 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<BorlandProject>
-	<Transactions>
-    <Transaction>2010.09.06 13:52:43.405.pas,C:\Users\Евгений\Documents\RAD Studio\Projects\Unit1.pas=D:\projects\VForth\Src\VForthL.pas</Transaction>
-    <Transaction>2010.09.06 13:52:43.405.dfm,C:\Users\Евгений\Documents\RAD Studio\Projects\Unit1.dfm=D:\projects\VForth\Src\VForthL.dfm</Transaction>
-    <Transaction>2010.09.06 13:52:54.847.dproj,C:\Users\Евгений\Documents\RAD Studio\Projects\Project1.dproj=D:\projects\VForth\Src\VForthLive.dproj</Transaction>
-  </Transactions>
-</BorlandProject>
