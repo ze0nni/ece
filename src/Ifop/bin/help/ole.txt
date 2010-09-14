@@ -1,2 +1,0 @@
-NewOleObj	NewOleObj (s1 -- i1)\nСоздает ole-сервер на основе строки в вершине стека и помещает его в вершину стека.
-CallOleMethod	CallOleMethod (argn..arg2 arg1 argscount medhod -- result)\nВыполняет указанный метдод ole-сервера и возвращает результат в стек.
