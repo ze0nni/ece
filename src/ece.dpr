@@ -35,7 +35,7 @@ var
 
 begin
 {$IFNDEF FPC}
-  ReportMemoryLeaksOnShutdown := true;
+  //ReportMemoryLeaksOnShutdown := true;
 {$ENDIF}
   try
     App := TEceAppWindow.Create(0);

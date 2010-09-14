@@ -16,6 +16,7 @@ type
     private
       FCsChangeState: TRTLCriticalSection;
       FState: TEceDocumentState;
+      FFileName : string;
     FApplication: IEceApplication;
       procedure SetDocumentState(const value: TEceDocumentState);
       function GetDocumentState: TEceDocumentState;
@@ -38,6 +39,7 @@ type
       property Vscroll;
       property HScroll;
       property Application : IEceApplication read FApplication;
+      property FileName : string read FFileName;
     end;
 
 implementation
@@ -62,12 +64,12 @@ end;
 
 procedure TEceDocumentWindow.LoadFromFile(AFileName : String);
 begin
-
+  FFileName := AFileName;
 end;
 
 procedure TEceDocumentWindow.SaveToFile(AFileName : string);
 begin
-
+  FFileName := AFileName;
 end;
 
 function TEceDocumentWindow.GetDocumentFileName: string;

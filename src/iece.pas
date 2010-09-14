@@ -1,9 +1,13 @@
 unit iece;
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
+{$I EceLanguage.inc}
 
 interface
 
 uses
+  {$ifdef forth}
+  VForth,
+  {$endif}
   Windows,
   Contnrs,
   SysUtils,
@@ -24,6 +28,9 @@ type
     function _GetDocuments(AIndex: integer; var ADocument: IEceDocument)
       : integer; safecall;
     procedure _UpdateCaption; safecall;
+    {$ifdef forth}
+    function GetModule : IVForthModule; stdcall;
+    {$endif}
 
     procedure _FocusToActiveDocument; stdcall;
   end;

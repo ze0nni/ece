@@ -108,6 +108,20 @@ begin
   AMachine.Push(v.Convert(v.VariantType));
 end;
 
+//Удаляет из стека второе сверху число, сдвигая вершину на его место
+procedure VfNip(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  AMachine.PopEx(1)
+end;
+
+//Вращает N верхних чисел стека. 1 ROLL аналогично SWAP
+procedure VfRoll(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  AMachine.Push(AMachine.PopEx(AMachine.PopInt));
+end;
+
 procedure VfPickVar(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 var
@@ -116,6 +130,7 @@ begin
   v := AMachine.DataStack[AMachine.PopInt];
   AMachine.Push(v);
 end;
+
 
 // Выводим стек на экран
 procedure VfViewStack(AMachine: IVForthMachine; AAthom: IVForthAthom;
@@ -402,6 +417,9 @@ begin
 
   AMachine.AddAthom(CreateVForthSystemAthom('pick', Self, VfPick));
   AMachine.AddAthom(CreateVForthSystemAthom('pick*', Self, VfPickVar));
+
+  AMachine.AddAthom(CreateVForthSystemAthom('nip', Self, VfNip));
+  AMachine.AddAthom(CreateVForthSystemAthom('roll', Self, VfRoll));
 
   AMachine.AddAthom(CreateVForthSystemAthom('.s', Self, VfViewStack));
   AMachine.AddAthom(CreateVForthSystemAthom('.c', Self, VfClearStack));

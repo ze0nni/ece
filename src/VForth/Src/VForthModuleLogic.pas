@@ -109,10 +109,10 @@ begin
     AMachine.Stack := fsSystem;
     AMachine.Push(v1);
     AMachine.Push(v0);
-    if v1.IntValue = v0.IntValue then
-    begin
-      SeekForExit(AMachine);
-    end;
+//    if v1.IntValue = v0.IntValue then
+//    begin
+//      SeekForExit(AMachine);
+//    end;
     // AMachine.Push(AMachine.DataStack[1].Convert(vtInteger));
     AMachine.PushAddr(AMachine.CourientTkIndex);
   finally

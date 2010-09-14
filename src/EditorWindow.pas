@@ -10,6 +10,7 @@
 unit EditorWindow;
 // test comments line
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
+{$I EceLanguage.inc}
 
 interface
 
@@ -779,8 +780,8 @@ begin
   SendMessage(Handle, WM_SETCURSOR, 0, MakeWParam(1, 0));
   FPanaramModeMousePt.X := msg.xPos;
   FPanaramModeMousePt.Y := msg.yPos;
-  FPanaramScrollInfo.x := 0;
-  FPanaramScrollInfo.y := 0;
+  FPanaramScrollInfo.X := 0;
+  FPanaramScrollInfo.Y := 0;
   SetCapture(Handle);
 end;
 
@@ -859,8 +860,8 @@ begin
 {$ELSE}
     esPanaramScroll:
       begin
-        FPanaramScrollInfo.x := FPanaramModeMousePt.X - msg.XPos;
-        FPanaramScrollInfo.y := FPanaramModeMousePt.Y - msg.YPos;
+        FPanaramScrollInfo.X := FPanaramModeMousePt.X - msg.xPos;
+        FPanaramScrollInfo.Y := FPanaramModeMousePt.Y - msg.yPos;
       end;
 {$ENDIF}
 {$ENDREGION}
@@ -1247,7 +1248,7 @@ procedure TEceEditorWindow.SetState(const value: TEceEditorState);
 begin
   FState := value;
 {$IFDEF PanaramMode}
-{$else}
+{$ELSE}
   case FState of
     esEdit:
       KillTimer(Handle, EDITOR_TIMER_SCROLL);
@@ -1483,14 +1484,14 @@ begin
   end;
 end;
 
-procedure TEceEditorWindow.onVscroll(pos: integer; EndScroll: boolean);
-begin
-  OffsetY := pos;
-end;
-
 procedure TEceEditorWindow.onHscroll(pos: integer; EndScroll: boolean);
 begin
   OffsetX := pos;
+end;
+
+procedure TEceEditorWindow.onVscroll(pos: integer; EndScroll: boolean);
+begin
+  OffsetY := pos;
 end;
 
 function TEceEditorWindow.GetEditorRect: TRect;
@@ -1503,7 +1504,7 @@ end;
 
 function TEceEditorWindow.GetCharsInHeight: integer;
 begin
-  Result := EditorRect.Bottom div CharHeight;
+  Result := (EditorRect.Bottom) div CharHeight;
 end;
 
 function TEceEditorWindow.GetCharsInWidth: integer;
@@ -1781,7 +1782,7 @@ end;
 Procedure TLine.SetText(const value: String);
 begin
   FText := value;
-  // UpdateSyn;
+  UpdateSyn;
   { todo: Известить об изменении }
 end;
 
@@ -1892,7 +1893,8 @@ begin
 
   System.Insert(AString, FText, AChar);
   { DONE -oOnni -cGeneral : Один лишний Invalidate }
-  // Invalidate;
+  Invalidate;
+  UpdateSyn;
 end;
 
 procedure TLine.Delete(AChar, ACount: integer);

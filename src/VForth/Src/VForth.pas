@@ -127,7 +127,6 @@ type
     function GetName: String; stdcall;
     function GetModule: IVForthModule; stdcall;
     // public
-
     property Name: string read GetName;
     property Module: IVForthModule read GetModule;
     procedure Execute(AMachine: IVForthMachine; PAthomStr: PWideChar); stdcall;

@@ -2,7 +2,7 @@ unit eceConsoleWindow;
 
 interface
 
-{$I def.inc}
+{$I EceLanguage.inc}
 
 uses
   Windows,
@@ -36,7 +36,7 @@ MsAsKernel;
 type
   TEceConsoleCaret = class;
 
-  TEceConsoleWindow = class(TEceEditorWindow {$ifdef forth},IVForthIO{$endif})
+  TEceConsoleWindow = class(TEceEditorWindow {$IFDEF forth}, IVForthIO {$ENDIF})
   private
 {$IFDEF forth}
     FVForthMachine: IVForthMachine;
@@ -47,11 +47,11 @@ type
     FHistory: TStringList;
     FHistoryIndex: Integer;
   protected
-    {$ifdef forth}
+{$IFDEF forth}
     function StdIn: string; stdcall;
     procedure StdOut(str: string); stdcall;
     procedure StdErr(str: string); stdcall;
-    {$endif}
+{$ENDIF}
     function CreateCaret: TCaret; override;
     function CreateLine: TLine; override;
     procedure wmChar(var msg: TWmChar);
@@ -98,76 +98,56 @@ implementation
 
 { TEceConsoleWindow }
 
-procedure StdOutProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean);
+procedure StdProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean;
+  t: TLineType);
+  procedure OutputLine(l: string);
+  var
+    Line: TConsoleLine;
+    copyC: Integer;
+  begin
+    Line := TConsoleLine(con.Lines[con.Count - 1]);
+    if (Line.FLineType <> t) or (Line.Length + Length(l) > con.CharsInWidth - 1)
+      then
+    begin
+      Line := TConsoleLine(con.AddLine);
+      Line.LineType := t;
+    end;
+    Line.LineType := t;
+    Line.Text := Line.Text + l + #32#32#32#32;
+    Line.UpdateSyn;
+  end;
 var
-  l: TConsoleLine;
-  lns: TStringList;
+  Ls: TStringList;
   i: Integer;
 begin
-  lns := TStringList.Create;
-  lns.Text := AText;
-
-  for i := 0 to lns.Count - 1 do
-  begin
-    AText := lns[i];
-    AText := StringReplace(AText, #9, #32#32#32#32, [rfReplaceAll]);
-    l := TConsoleLine(con.Lines[con.Count - 1]);
-    if l.LineType = ltErr then
-    begin
-      if (not AReturn) and (l.Length + Length(AText) <= l.Editor.CharsInWidth)
-        then
-      begin
-        l.Text := l.Text + AText;
-        exit;
-      end;
-    end;
-
-    with TConsoleLine(con.AddLine) do
-    begin
-      LineType := ltOut;
-      Text := AText;
-      Invalidate;
-    end;
+  try
+    Ls := TStringList.Create;
+    Ls.Text := AText;
+    for i := 0 to Ls.Count - 1 do
+      OutputLine(Ls[i]);
+    if AReturn then
+      con.AddLine;
+  finally
+    Ls.Free;
   end;
-  lns.Free;
+end;
+
+procedure StdOutProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean);
+begin
+  StdProc(con, AText, AReturn, ltOut);
 end;
 
 procedure StdErrProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean);
-var
-  l: TConsoleLine;
-  lns: TStringList;
-  i: Integer;
 begin
-  lns := TStringList.Create;
-  lns.Text := AText;
-
-  for i := 0 to lns.Count - 1 do
-  begin
-    AText := lns[i];
-    AText := StringReplace(AText, #9, #32#32#32#32, [rfReplaceAll]);
-    l := TConsoleLine(con.Lines[con.Count - 1]);
-    if l.LineType = ltErr then
-    begin
-      if (not AReturn) and (l.Length + Length(AText) <= l.Editor.CharsInWidth)
-        then
-      begin
-        l.Text := l.Text + AText;
-        exit;
-      end;
-    end;
-
-    with TConsoleLine(con.AddLine) do
-    begin
-      LineType := ltErr;
-      Text := AText;
-      Invalidate;
-    end;
-  end;
-  lns.Free;
+  StdProc(con, AText, AReturn, ltErr)
 end;
 
 constructor TEceConsoleWindow.Create(Parent: Cardinal;
   AApplication: IEceApplication);
+{$IFDEF forth}
+  var
+  AppModule: IVForthModule;
+{$endif}
 begin
   inherited;
 {$IFDEF forth}
@@ -179,6 +159,7 @@ begin
   FVForthMachine.LoadModule(TVForthModuleLogic.Create);
   FVForthMachine.LoadModule(TVForthModuleDateTIme.Create);
   FVForthMachine.LoadModule(TVForthModuleWin32.Create);
+  FVForthMachine.LoadModule(AApplication.GetModule);
 {$ELSE}
   FIfopKernel := TKernel.Create;
 {$ENDIF}
@@ -236,7 +217,8 @@ begin
         MB_ICONERROR);
   end;
 end;
-{$ifdef forth}
+{$IFDEF forth}
+
 procedure TEceConsoleWindow.StdErr(str: string);
 begin
   StdErrProc(Self, str, false);
@@ -251,7 +233,8 @@ procedure TEceConsoleWindow.StdOut(str: string);
 begin
   StdOutProc(Self, str, false);
 end;
-{$endif}
+{$ENDIF}
+
 procedure TEceConsoleWindow.wmChar(var msg: TWmChar);
 var
   str: String;

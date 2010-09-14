@@ -4,7 +4,7 @@ interface
 
 { TODO -oOnni -cGeneral : При работе с "быстрым стеком"
   неправильно удаляются атомы }
-// {$define QAthomStack}
+{$DEFINE QAthomStack}
 
 uses
   VForth,
@@ -16,6 +16,15 @@ uses
 
 type
   EVForthMachineError = class(Exception)
+  end;
+
+  // Структура хранит
+  PQStruct = ^TQStruct;
+
+  TQStruct = record
+    Time: Cardinal; // дату последнег изменения стека атомов
+    Index: Integer; // Индекс вызываемого атома
+    isVar: Boolean; // Признак того, что нужно искать переменную
   end;
 
   TVForthMachine = class(TVForthModule, IVForthMachine, IVForthModule)
@@ -39,6 +48,8 @@ type
     FCourientTk: TStringList;
     // IO
     FIO: IVForthIO;
+    // Время последнего обновления стека атомов
+    FLastAthomsUpdateTime: Cardinal;
     function GetAthom(const AAthom: String): IVForthAthom; stdcall;
     function TryGetAthom(Const AAthom: string; var obj: IVForthAthom): Boolean;
       stdcall;
@@ -309,6 +320,8 @@ begin
     FQAthomStack.AddObject(AAthom.Name, TObject(pI));
     FQAthomStack.Sort;
     FQAthomStack.Sorted := true;
+    // Обновляем
+    FLastAthomsUpdateTime := GetTickCount;
   end
   else
   begin
@@ -370,9 +383,13 @@ begin
 {$ELSE}
             if TryGetAthom(TkLine, A) then
 {$ENDIF}
+            begin
               A.Execute(Self, PWideChar(TkLine))
+            end
             else
+            begin
               Push(Varible[TkLine]);
+            end;
           i := FCourientTkIndex; // Ветвление и циклы
         end;
       tkNewAthom:
@@ -448,6 +465,8 @@ begin
           begin
             Dispose(pI);
             FQAthomStack.Delete(index);
+            // Обновляем
+            FLastAthomsUpdateTime := GetTickCount;
           end;
         end;
 {$ENDIF}
