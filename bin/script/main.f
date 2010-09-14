@@ -16,5 +16,5 @@
 		0 DeleteEditorLine
 	loop
 	AddEditorLine
-	InvaLidateEditor
+	InvaLidateEditor drop
 ;
