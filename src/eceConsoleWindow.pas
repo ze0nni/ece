@@ -38,6 +38,7 @@ type
 
   TEceConsoleWindow = class(TEceEditorWindow {$IFDEF forth}, IVForthIO {$ENDIF})
   private
+    FApplication: IEceApplication;
 {$IFDEF forth}
     FVForthMachine: IVForthMachine;
 {$ELSE}
@@ -106,8 +107,8 @@ procedure StdProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean;
     copyC: Integer;
   begin
     Line := TConsoleLine(con.Lines[con.Count - 1]);
-    if (Line.FLineType <> t) or (Line.Length + Length(l) > con.CharsInWidth - 1)
-      then
+    if (Line.FLineType <> t) or
+      (Line.Length + Length(l) > con.CharsInWidth - 1) then
     begin
       Line := TConsoleLine(con.AddLine);
       Line.LineType := t;
@@ -116,17 +117,19 @@ procedure StdProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean;
     Line.Text := Line.Text + l + #32#32#32#32;
     Line.UpdateSyn;
   end;
+
 var
   Ls: TStringList;
   i: Integer;
 begin
   try
+    { TODO -oOnni -cGeneral : Разбивать на строки }
     Ls := TStringList.Create;
     Ls.Text := AText;
     for i := 0 to Ls.Count - 1 do
+    begin
       OutputLine(Ls[i]);
-    if AReturn then
-      con.AddLine;
+    end;
   finally
     Ls.Free;
   end;
@@ -145,11 +148,12 @@ end;
 constructor TEceConsoleWindow.Create(Parent: Cardinal;
   AApplication: IEceApplication);
 {$IFDEF forth}
-  var
+var
   AppModule: IVForthModule;
-{$endif}
+{$ENDIF}
 begin
   inherited;
+  FApplication := AApplication;
 {$IFDEF forth}
   FVForthMachine := CreateVForthMachine;
   FVForthMachine.SetIo(Self);
@@ -204,7 +208,8 @@ begin
 {$ENDIF}
       l.LoadFromFile(FScriptSource);
 {$IFDEF forth}
-      FVForthMachine.AddCode(l.Text);
+      {TODO -oOnni -cGeneral : После модификации перестал работать с могосрочным текстом?}
+      FVForthMachine.AddCode(StringReplace(l.Text, #13#10, #32, [rfReplaceAll]));
 {$ELSE}
       FIfopKernel.AddCode(l.Text);
 {$ENDIF}
@@ -239,6 +244,8 @@ procedure TEceConsoleWindow.wmChar(var msg: TWmChar);
 var
   str: String;
   index: Integer;
+  i: Integer;
+  doc : IEceDocument;
 begin
   FHistoryIndex := -1;
   case msg.CharCode of
@@ -247,9 +254,15 @@ begin
         try
           try
             BeginUpdate;
-            str := Strings[Count - 1];
+            for i := 0 to Application._GetDocumentsCount - 1 do
+            begin
+              Application._GetDocuments(i, doc);
+              doc._BeginUpdate;
+            end;
+
+                str := Strings[Count - 1];
 {$IFDEF forth}
-            FVForthMachine.AddCode(str);
+             FVForthMachine.AddCode(str);
 {$ELSE}
             FIfopKernel.AddCode(str);
 {$ENDIF}
@@ -260,6 +273,11 @@ begin
             FHistory.Insert(0, str);
 {$ENDREGION}
           finally
+            for i := 0 to Application._GetDocumentsCount - 1 do
+            begin
+              Application._GetDocuments(i, doc);
+              doc._EndUpdate;
+            end;
             EndUpdate;
           end;
         except

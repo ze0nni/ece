@@ -5,9 +5,9 @@ unit iece;
 interface
 
 uses
-  {$ifdef forth}
+{$IFDEF forth}
   VForth,
-  {$endif}
+{$ENDIF}
   Windows,
   Contnrs,
   SysUtils,
@@ -28,15 +28,17 @@ type
     function _GetDocuments(AIndex: integer; var ADocument: IEceDocument)
       : integer; safecall;
     procedure _UpdateCaption; safecall;
-    {$ifdef forth}
-    function GetModule : IVForthModule; stdcall;
-    {$endif}
-
+{$IFDEF forth}
+    function GetModule: IVForthModule; stdcall;
+{$ENDIF}
     procedure _FocusToActiveDocument; stdcall;
   end;
 
   IEceDocument = interface
+    function UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL; stdcall;
     function _GetHandle: HWND; safecall;
+    procedure _BeginUpdate; safecall;
+    procedure _EndUpdate; safecall;
   end;
 
   IEceLine = interface;
@@ -45,8 +47,6 @@ type
 
   IEceEditor = interface
     function _GetHandle: HWND; safecall;
-    procedure _BeginUpdate; safecall;
-    procedure _EndUpdate; safecall;
     function _GetLinesCount: integer; safecall;
     function _GetLines(AIndex: integer): IEceLine; safecall;
     function _GetGutter: IGutter; safecall;
@@ -171,11 +171,10 @@ begin
   try
     Result := InvokeName(DispID, IID, LocaleID, Flags, P, R, E, Er)
     // Ну, пока так, а причину эксепшенов надо выяснить
-    except
-    on E:EEditorException do
-      raise Exception.Create(e.Message);
-    else
-      //Иначе ничего =)
+      except on E: EEditorException
+    do raise Exception.Create(E.Message);
+  else
+    // Иначе ничего =)
   end;
   { TODO -oOnni -cBug : Программа вылетает сдесь без отладки, возможно причина в
     потере каких-то ссылок на интерйейсы, тем более что так все работает: }

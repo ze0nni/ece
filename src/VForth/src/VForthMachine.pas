@@ -23,8 +23,18 @@ type
 
   TQStruct = record
     Time: Cardinal; // дату последнег изменения стека атомов
-    Index: Integer; // Индекс вызываемого атома
-    isVar: Boolean; // Признак того, что нужно искать переменную
+    TkType: Byte; // Тип токена
+    case integer of
+      0:
+        (Index: integer); // Индекс атома
+      1:
+        (Data: Pointer); // ССылка
+      2:
+        (PStr: PString); // Строка
+      3:
+        (PInt: PInteger); // Число
+      4:
+        (PFloat: PDouble); // Целое
   end;
 
   TVForthMachine = class(TVForthModule, IVForthMachine, IVForthModule)
@@ -44,7 +54,7 @@ type
     // Стек переменных
     FVaribleStack: TInterfaceList;
     // Управление
-    FCourientTkIndex: Integer;
+    FCourientTkIndex: integer;
     FCourientTk: TStringList;
     // IO
     FIO: IVForthIO;
@@ -56,18 +66,19 @@ type
 {$IFDEF QAthomStack}
     function TryGetAthomQ(Const AAthom: string; var obj: IVForthAthom): Boolean;
 {$ENDIF}
-    function GetDataStack(const index: Integer): IVForthVariant; stdcall;
-    procedure SetDataStack(const index: Integer; const Value: IVForthVariant);
+    procedure ClearTkList(l: TStringList);
+    function GetDataStack(const index: integer): IVForthVariant; stdcall;
+    procedure SetDataStack(const index: integer; const Value: IVForthVariant);
       stdcall;
 
-    class procedure ParseString(ACode: string; TkList: TStringList);
+    procedure ParseString(ACode: string; TkList: TStringList);
     procedure ExecuteTkList(TkList: TStringList);
-    function GetCourientTkIndex: Integer; stdcall;
-    procedure SetCourientTkIndex(const Value: Integer); stdcall;
-    function GetTkCount: Integer; stdcall;
-    function GetDataStackSize: Integer; stdcall;
-    function GetAthomsCount: Integer; stdcall;
-    function GetAthomByIndex(const AAthom: Integer): IVForthAthom; stdcall;
+    function GetCourientTkIndex: integer; stdcall;
+    procedure SetCourientTkIndex(const Value: integer); stdcall;
+    function GetTkCount: integer; stdcall;
+    function GetDataStackSize: integer; stdcall;
+    function GetAthomsCount: integer; stdcall;
+    function GetAthomByIndex(const AAthom: integer): IVForthAthom; stdcall;
     function GetVarible(AVaribleName: string): IVForthVariant; stdcall;
     function GetStack: TForthStack; stdcall;
     procedure SetStack(const Value: TForthStack); stdcall;
@@ -88,13 +99,13 @@ type
     procedure AddAthom(AAthom: IVForthAthom); stdcall;
     procedure AddCode(ACode: string); stdcall;
 
-    property DataStack[const index: Integer]
+    property DataStack[const index: integer]
       : IVForthVariant read GetDataStack write SetDataStack;
-    property DataStackSize: Integer read GetDataStackSize;
+    property DataStackSize: integer read GetDataStackSize;
     property Athom[const AAthom: String]: IVForthAthom read GetAthom;
-    property AthomByIndex[const AAthom: Integer]
+    property AthomByIndex[const AAthom: integer]
       : IVForthAthom read GetAthomByIndex;
-    property AthomsCount: Integer read GetAthomsCount;
+    property AthomsCount: integer read GetAthomsCount;
     procedure Forget(AAthom: string); stdcall;
 
     property Varible[AVaribleName: string]: IVForthVariant read GetVarible;
@@ -103,26 +114,26 @@ type
 
     procedure Push(AVariant: IVForthVariant); stdcall;
     function Pop: IVForthVariant; stdcall;
-    procedure PushEx(index: Integer; AVariant: IVForthVariant); stdcall;
-    function PopEx(index: Integer): IVForthVariant; stdcall;
-    procedure PushInt(AVariant: Integer); stdcall;
-    function PopInt: Integer; stdcall;
+    procedure PushEx(index: integer; AVariant: IVForthVariant); stdcall;
+    function PopEx(index: integer): IVForthVariant; stdcall;
+    procedure PushInt(AVariant: integer); stdcall;
+    function PopInt: integer; stdcall;
     procedure PushFloat(AVariant: Double); stdcall;
     function PopFloat: Double; stdcall;
     procedure PushString(AVariant: string); stdcall;
     function PopString: string; stdcall;
-    procedure PushNatural(AVariant1, AVariant2: Integer); stdcall;
+    procedure PushNatural(AVariant1, AVariant2: integer); stdcall;
     procedure PushComplex(AVariant1, AVariant2: Double); stdcall;
     // Переменные
 
     // Стек адресов
-    procedure PushAddr(AValue: Integer); stdcall;
-    function ReturnAddr: Integer; stdcall;
-    function PopAddr: Integer; stdcall;
-    property CourientTkIndex: Integer read GetCourientTkIndex write
+    procedure PushAddr(AValue: integer); stdcall;
+    function ReturnAddr: integer; stdcall;
+    function PopAddr: integer; stdcall;
+    property CourientTkIndex: integer read GetCourientTkIndex write
       SetCourientTkIndex;
-    property TkCount: Integer read GetTkCount;
-    function GetTk(index: Integer): string; stdcall;
+    property TkCount: integer read GetTkCount;
+    function GetTk(index: integer): string; stdcall;
   end;
 
 implementation
@@ -156,31 +167,31 @@ resourcestring
 
 const
   // Токен не определен
-  TK_NULL = TObject(0);
+  TK_NULL = 0;
   // Переменные
-  TK_INTEGER = TObject(1);
-  TK_FLOAT = TObject(2);
-  TK_NATURAL = TObject(3);
-  TK_COMPLEX = TObject(4);
-  TK_STRING = TObject(5);
+  TK_INTEGER = 1;
+  TK_FLOAT = 2;
+  TK_NATURAL = 3;
+  TK_COMPLEX = 4;
+  TK_STRING = 5;
   // Атом
-  TK_ATHOM = TObject(6);
+  TK_ATHOM = 6;
   // Объявление нового атома
-  TK_NEWATHOM = TObject(7);
+  TK_NEWATHOM = 7;
   // Переменная
-  TK_VARIABLE = TObject(8);
+  TK_VARIABLE = 8;
 
 const
   SpaceChars = [#9, #10, #13, #32];
 
 type
-  TTokenType = (tkNull = Integer(TK_NULL), tkInteger = Integer(TK_INTEGER),
-    tkFloat = Integer(TK_FLOAT), tkNatural = Integer(TK_NATURAL),
-    tkComplex = Integer(TK_COMPLEX), tkString = Integer(TK_STRING),
-    tkAthom = Integer(TK_ATHOM), tkNewAthom = Integer(TK_NEWATHOM),
-    tkVariable = Integer(TK_VARIABLE));
+  TTokenType = (tkNull = integer(TK_NULL), tkInteger = integer(TK_INTEGER),
+    tkFloat = integer(TK_FLOAT), tkNatural = integer(TK_NATURAL),
+    tkComplex = integer(TK_COMPLEX), tkString = integer(TK_STRING),
+    tkAthom = integer(TK_ATHOM), tkNewAthom = integer(TK_NEWATHOM),
+    tkVariable = integer(TK_VARIABLE));
 
-class procedure TVForthMachine.ParseString(ACode: string; TkList: TStringList);
+procedure TVForthMachine.ParseString(ACode: string; TkList: TStringList);
 
 var
   SChar, CChar, EChar: PChar;
@@ -241,23 +252,58 @@ var
   procedure ScanForAthomAndAdd;
   var
     Tk: String;
-    n: Integer;
+    n: integer;
     f: Double;
+    a: IVForthAthom;
+    index: integer;
+  var
+    pQtk: PQStruct;
   begin
     Tk := ScanForAthom;
     // Проверка на целое
     if TryStrToInt(Tk, n) then
-      TkList.AddObject(Tk, TK_INTEGER)
+    begin
+      new(pQtk);
+      pQtk^.TkType := TK_INTEGER;
+      new(pQtk^.PInt);
+      pQtk^.PInt^ := n;
+      TkList.AddObject(Tk, TObject(pQtk))
+    end
     else
     // Проверка на вещественное
       if TryStrToFloat(Tk, f) then
-      TkList.AddObject(Tk, TK_FLOAT)
+    begin
+      new(pQtk);
+      pQtk^.TkType := TK_FLOAT;
+      new(pQtk^.PFloat);
+      pQtk^.PFloat^ := f;
+      TkList.AddObject(Tk, TObject(pQtk))
+    end
     else
-      // Ни чего не подошло? значит просто атом
-      TkList.AddObject(Tk, TK_ATHOM)
+    begin
+      // Ни чего не подошло? значит просто атом или переменная
+      new(pQtk);
+      // Время последнего обновления стека атомов
+      pQtk^.Time := FLastAthomsUpdateTime;
+      index := FQAthomStack.IndexOf(Tk);
+
+      if index <> -1 then
+      begin
+        pQtk^.TkType := TK_ATHOM;
+        pQtk^.Index := index;
+      end
+      else
+      begin
+        pQtk^.TkType := TK_VARIABLE;
+      end;
+
+      TkList.AddObject(Tk, TObject(pQtk))
+    end;
   end;
 {$ENDREGION}
 
+var
+  pQtk: PQStruct;
 begin
   SChar := PChar(ACode);
   CChar := SChar;
@@ -274,13 +320,17 @@ begin
       // Ищем строки
       '"':
         begin
-          TkList.AddObject(ScanForString, TK_STRING);
+          new(pQtk);
+          pQtk.TkType := TK_STRING;
+          TkList.AddObject(ScanForString, TObject(pQtk));
           continue;
         end;
       // Ищем объявления атомов
       ':':
         begin
-          TkList.AddObject(ScanForNewAthom, TK_NEWATHOM);
+          new(pQtk);
+          pQtk.TkType := TK_NEWATHOM;
+          TkList.AddObject(ScanForNewAthom, TObject(pQtk));
           continue;
         end;
       // Ищем комментарии
@@ -306,7 +356,7 @@ end;
 
 procedure TVForthMachine.AddAthom(AAthom: IVForthAthom);
 var
-  index: Integer;
+  index: integer;
   pI: ^IInterface;
 begin
   FAthomStack.Insert(0, AAthom);
@@ -321,7 +371,7 @@ begin
     FQAthomStack.Sort;
     FQAthomStack.Sorted := true;
     // Обновляем
-    FLastAthomsUpdateTime := GetTickCount;
+    inc(FLastAthomsUpdateTime);
   end
   else
   begin
@@ -340,20 +390,24 @@ begin
     ParseString(ACode, TkList);
     ExecuteTkList(TkList);
   finally
+    ClearTkList(TkList);
     TkList.Free;
   end;
 end;
 
 procedure TVForthMachine.ExecuteTkList(TkList: TStringList);
 var
-  i: Integer;
+  i: integer;
   TkLine: string;
   NewAthom: TVForthAthom;
   NewTkName: String;
   NewTkCode: String;
-  SpPos: Integer;
-  FLastTkIndex: Integer;
-  A: IVForthAthom;
+  SpPos: integer;
+  FLastTkIndex: integer;
+  a: IVForthAthom;
+  pQtk: PQStruct;
+  index: integer;
+  pI: ^IInterface;
 begin
   FLastTkIndex := FCourientTkIndex;
   FCourientTk := TkList;
@@ -363,28 +417,62 @@ begin
     inc(i);
     FCourientTkIndex := i; // Ветвление и циклы
     TkLine := TkList[i];
-    case TTokenType(TkList.Objects[i]) of
+    pQtk := Pointer(TkList.Objects[i]);
+    case TTokenType(pQtk^.TkType) of
       tkNull:
         raise EVForthMachineError.Create('Unknown token');
       tkInteger:
-        PushInt(StrToInt(TkLine));
+        PushInt(pQtk^.PInt^);
       tkFloat:
-        PushFloat(StrToFloat(TkLine));
+        PushFloat(pQtk^.PFloat^);
       tkNatural:
         ;
       tkComplex:
         ;
       tkString:
         PushString(TkLine);
-      tkAthom:
+      tkAthom, tkVariable:
         begin
 {$IFDEF QAthomStack}
-          if TryGetAthomQ(TkLine, A) then
+          if (pQtk^.Time <> FLastAthomsUpdateTime) then
+          begin
+{$REGION 'Обновим время'}
+            index := FQAthomStack.IndexOf(TkLine);
+            if index <> -1 then
+            begin
+              pQtk^.Index := index;
+              pQtk^.TkType := TK_ATHOM;
+              pI := Pointer(FQAthomStack.Objects[index]);
+              a := IVForthAthom(pI^);
+            end
+            else
+            begin
+              pQtk^.TkType := TK_VARIABLE;
+            end;
+            pQtk^.Time := FLastAthomsUpdateTime;
+{$ENDREGION}
+          end
+          else
+          begin
+{$REGION 'Просто получим атом'}
+            if pQtk^.TkType = TK_ATHOM then
+            begin
+              index := pQtk^.Index;
+              pI := Pointer(FQAthomStack.Objects[index]);
+              a := IVForthAthom(pI^);
+            end
+            else
+            begin
+              index := -1;
+            end;
+{$ENDREGION}
+          end;
+          if index <> -1 then
 {$ELSE}
-            if TryGetAthom(TkLine, A) then
+            if TryGetAthom(TkLine, a) then
 {$ENDIF}
             begin
-              A.Execute(Self, PWideChar(TkLine))
+              a.Execute(Self, PWideChar(TkLine))
             end
             else
             begin
@@ -424,17 +512,17 @@ end;
 
 procedure TVForthMachine.Forget(AAthom: string);
 var
-  i: Integer;
-  A: IVForthAthom;
+  i: integer;
+  a: IVForthAthom;
   AName: string;
-  j: Integer;
-  index: Integer;
+  j: integer;
+  index: integer;
   pI: ^IInterface;
 begin
   for i := 0 to FAthomStack.Count - 1 do
   begin
-    A := GetAthomByIndex(i);
-    AName := A.Name;
+    a := GetAthomByIndex(i);
+    AName := a.Name;
     if Windows.CompareString(LOCALE_USER_DEFAULT, NORM_IGNORECASE, PChar(AAthom)
         , Length(AAthom), PChar(AName), Length(AName)) = CSTR_EQUAL then
     begin
@@ -466,7 +554,7 @@ begin
             Dispose(pI);
             FQAthomStack.Delete(index);
             // Обновляем
-            FLastAthomsUpdateTime := GetTickCount;
+            inc(FLastAthomsUpdateTime);
           end;
         end;
 {$ENDIF}
@@ -482,6 +570,26 @@ begin
   end;
   // Ошибка же
   raise EVForthMachineError.CreateFmt('Can''t forget athom "%s"', [AAthom]);
+end;
+
+procedure TVForthMachine.ClearTkList(l: TStringList);
+var
+  i: integer;
+  pQtk: PQStruct;
+begin
+  for i := 0 to l.Count - 1 do
+  begin
+    pQtk := Pointer(l.Objects[i]);
+    case TTokenType(pQtk^.TkType) of
+      tkInteger:
+        Dispose(pQtk^.PInt);
+      tkFloat:
+        Dispose(pQtk^.PFloat);
+      tkNatural, tkComplex:
+        raise Exception.Create('Обработать');
+    end;
+  end;
+  l.Clear;
 end;
 
 constructor TVForthMachine.Create;
@@ -504,7 +612,7 @@ end;
 destructor TVForthMachine.Destroy;
 var
   s: TForthStack;
-  i: Integer;
+  i: integer;
   pI: ^IInterface;
 begin
   if Assigned(FVaribleStack) then
@@ -537,8 +645,8 @@ end;
 function TVForthMachine.GetAthom(const AAthom: String): IVForthAthom;
 var
   Athom: IVForthAthom;
-  i: Integer;
-  len: Integer;
+  i: integer;
+  len: integer;
   AName: String;
 begin
   if not TryGetAthom(AAthom, Result) then
@@ -550,8 +658,8 @@ function TVForthMachine.TryGetAthom(const AAthom: string; var obj: IVForthAthom)
   : Boolean;
 var
   Athom: IVForthAthom;
-  i: Integer;
-  len: Integer;
+  i: integer;
+  len: integer;
   AName: String;
 begin
   len := Length(AAthom);
@@ -574,7 +682,7 @@ function TVForthMachine.TryGetAthomQ(const AAthom: string;
   var obj: IVForthAthom): Boolean;
 var
   Athom: IVForthAthom;
-  index: Integer;
+  index: integer;
   pI: ^IInterface;
 begin
   index := FQAthomStack.IndexOf(AAthom);
@@ -589,29 +697,29 @@ begin
 end;
 {$ENDIF}
 
-function TVForthMachine.GetAthomByIndex(const AAthom: Integer): IVForthAthom;
+function TVForthMachine.GetAthomByIndex(const AAthom: integer): IVForthAthom;
 begin
   Result := IVForthAthom(FAthomStack[AAthom]);
 end;
 
-function TVForthMachine.GetAthomsCount: Integer;
+function TVForthMachine.GetAthomsCount: integer;
 begin
   Result := FAthomStack.Count;
 end;
 
-function TVForthMachine.GetCourientTkIndex: Integer;
+function TVForthMachine.GetCourientTkIndex: integer;
 begin
   Result := FCourientTkIndex;
 end;
 
-function TVForthMachine.GetDataStack(const index: Integer): IVForthVariant;
+function TVForthMachine.GetDataStack(const index: integer): IVForthVariant;
 begin
   if (index >= FDataStack.Count) or (index < 0) then
     raise EVForthMachineError.CreateFmt(StrStackItemDOutOf, [index]);
   Result := IVForthVariant(FDataStack[index]);
 end;
 
-function TVForthMachine.GetDataStackSize: Integer;
+function TVForthMachine.GetDataStackSize: integer;
 begin
   Result := FDataStack.Count;
 end;
@@ -621,23 +729,23 @@ begin
   Result := FStack;
 end;
 
-function TVForthMachine.GetTk(index: Integer): string;
+function TVForthMachine.GetTk(index: integer): string;
 begin
   Result := FCourientTk[index];
 end;
 
-function TVForthMachine.GetTkCount: Integer;
+function TVForthMachine.GetTkCount: integer;
 begin
   Result := FCourientTk.Count;
 end;
 
 function TVForthMachine.GetVarible(AVaribleName: string): IVForthVariant;
 var
-  i: Integer;
+  i: integer;
   v: IVForthVariant;
-  Ln: Integer;
+  Ln: integer;
   Vname: string;
-  VLen: Integer;
+  VLen: integer;
 begin
   Ln := Length(AVaribleName);
   for i := 0 to FDataStack.Count - 1 do
@@ -670,13 +778,13 @@ begin
   FDataStack.Delete(0);
 end;
 
-function TVForthMachine.PopAddr: Integer;
+function TVForthMachine.PopAddr: integer;
 begin
   Result := ReturnAddr;
   FAdressStack.Delete(0);
 end;
 
-function TVForthMachine.PopEx(index: Integer): IVForthVariant;
+function TVForthMachine.PopEx(index: integer): IVForthVariant;
 begin
   Result := DataStack[index];
   FDataStack.Delete(index);
@@ -687,7 +795,7 @@ begin
   Result := Pop.FloatValue;
 end;
 
-function TVForthMachine.PopInt: Integer;
+function TVForthMachine.PopInt: integer;
 begin
   Result := Pop.IntValue;
 end;
@@ -702,7 +810,7 @@ begin
   FDataStack.Insert(0, AVariant);
 end;
 
-procedure TVForthMachine.PushAddr(AValue: Integer);
+procedure TVForthMachine.PushAddr(AValue: integer);
 begin
   FAdressStack.Insert(0, Pointer(AValue));
 end;
@@ -712,7 +820,7 @@ begin
   Push(CreateComplexVariant(AVariant1, AVariant2));
 end;
 
-procedure TVForthMachine.PushEx(index: Integer; AVariant: IVForthVariant);
+procedure TVForthMachine.PushEx(index: integer; AVariant: IVForthVariant);
 begin
   if (index > FDataStack.Count) or (index < 0) then
     raise EVForthMachineError.CreateFmt(StrStackItemDOutOf, [index]);
@@ -724,12 +832,12 @@ begin
   Push(CreateFloatVariant(AVariant));
 end;
 
-procedure TVForthMachine.PushInt(AVariant: Integer);
+procedure TVForthMachine.PushInt(AVariant: integer);
 begin
   Push(CreateIntegerVariant(AVariant));
 end;
 
-procedure TVForthMachine.PushNatural(AVariant1, AVariant2: Integer);
+procedure TVForthMachine.PushNatural(AVariant1, AVariant2: integer);
 begin
   Push(CreateNaturalVariant(AVariant1, AVariant2));
 end;
@@ -744,19 +852,19 @@ begin
 
 end;
 
-function TVForthMachine.ReturnAddr: Integer;
+function TVForthMachine.ReturnAddr: integer;
 begin
   if FAdressStack.Count = 0 then
     raise EVForthMachineError.Create('Address stack is empty.');
-  Result := Integer(FAdressStack[0]);
+  Result := integer(FAdressStack[0]);
 end;
 
-procedure TVForthMachine.SetCourientTkIndex(const Value: Integer);
+procedure TVForthMachine.SetCourientTkIndex(const Value: integer);
 begin
   FCourientTkIndex := Value;
 end;
 
-procedure TVForthMachine.SetDataStack(const index: Integer;
+procedure TVForthMachine.SetDataStack(const index: integer;
   const Value: IVForthVariant);
 begin
   if (index >= FDataStack.Count) or (index < 0) then
@@ -778,7 +886,7 @@ begin
   end
   else
     raise EVForthMachineError.CreateFmt
-      ('Bad stack index (%d)', [Integer(Value)]);
+      ('Bad stack index (%d)', [integer(Value)]);
 end;
 
 procedure TVForthMachine.StdErr(str: string);
@@ -829,7 +937,10 @@ end;
 destructor TVForthAthom.Destroy;
 begin
   if Assigned(FTk) then
+  begin
+    FMachine.ClearTkList(FTk);
     FTk.Free;
+  end;
   inherited;
 end;
 

@@ -220,9 +220,9 @@ begin
   RegisterName('ActiveDocument', PROP_ACTIVEDOCUMENT);
 
   UpdateCaption;
-  {$IFDEF forth}
+{$IFDEF forth}
   GlApp := Self;
-  {$endif}
+{$ENDIF}
 end;
 
 Destructor TEceAppWindow.Destroy;
@@ -273,8 +273,8 @@ function TEceAppWindow.GetDocumentsCount: Integer;
 begin
   Result := FDocuments.Count;
 end;
-
 {$IFDEF forth}
+
 function TEceAppWindow.GetModule: IVForthModule;
 begin
   Result := Self;
@@ -431,8 +431,8 @@ begin
   Plugin := LoadProc;
   Plugin.Load(Self);
 end;
-
 {$IFDEF forth}
+
 function TEceAppWindow.GetDoc(AMachine: IVForthMachine; const Word: string)
   : TEceDocumentWindow;
 begin
@@ -517,7 +517,7 @@ end;
 procedure efGetEditorLinesCount(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 var
-  Ed : TEceEditorWindow;
+  Ed: TEceEditorWindow;
 begin
   AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr).Count);
 end;
@@ -525,13 +525,19 @@ end;
 procedure efGetEditorLineText(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  AMachine.PushString(GlApp.GetEditor(AMachine, PAthomStr).Strings[AMachine.PopInt]);
+  AMachine.PushString(GlApp.GetEditor(AMachine, PAthomStr)
+      .Strings[AMachine.PopInt]);
 end;
 
 procedure efSetEditorLineText(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
+var
+  s: String;
+  l: Integer;
 begin
-  GlApp.GetEditor(AMachine, PAthomStr).Strings[AMachine.PopInt] := AMachine.PopString;
+  l := AMachine.PopInt;
+  s := AMachine.PopString;
+  GlApp.GetEditor(AMachine, PAthomStr).Strings[l] := s;
 end;
 
 procedure efInvalidateEditor(AMachine: IVForthMachine; AAthom: IVForthAthom;
@@ -540,8 +546,8 @@ begin
   GlApp.GetEditor(AMachine, PAthomStr).Invalidate;
 end;
 
-procedure efInvalidateEditorLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
+procedure efInvalidateEditorLine(AMachine: IVForthMachine;
+  AAthom: IVForthAthom; PAthomStr: PWideChar); stdcall;
 begin
   GlApp.GetEditor(AMachine, PAthomStr).Lines[AMachine.PopInt].Invalidate;
 end;
@@ -568,36 +574,45 @@ begin
   GlApp.GetEditor(AMachine, PAthomStr).InsertLine(AMachine.PopInt)
 end;
 
-procedure efInsertEditorLineText(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
+procedure efInsertEditorLineText(AMachine: IVForthMachine;
+  AAthom: IVForthAthom; PAthomStr: PWideChar); stdcall;
 begin
-  GlApp.GetEditor(AMachine, PAthomStr).InsertLine(AMachine.PopInt).Text := AMachine.PopString
+  GlApp.GetEditor(AMachine, PAthomStr).InsertLine(AMachine.PopInt)
+    .Text := AMachine.PopString
 end;
 
 procedure efDeleteEditorLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
+var
+  e: TEceEditorWindow;
 begin
-  GlApp.GetEditor(AMachine, PAthomStr).DeleteLine(AMachine.PopInt);
+  e := GlApp.GetEditor(AMachine, PAthomStr);
+  if e.Count = 1 then
+    //Первую строчку удалять ну ни как нельзя
+    e.Strings[0] := ''
+  else
+
+    e.DeleteLine(AMachine.PopInt);
 end;
 
-//caret
+// caret
 
 procedure efGetEditorCaretX(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  AMachine.PushInt( GlApp.GetEditor(AMachine, PAthomStr).Caret.X);
+  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr).Caret.X);
 end;
 
 procedure efGetEditorCaretY(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  AMachine.PushInt( GlApp.GetEditor(AMachine, PAthomStr).Caret.Y);
+  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr).Caret.Y);
 end;
 
 procedure efGetEditorCaretLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  AMachine.PushInt( GlApp.GetEditor(AMachine, PAthomStr).Caret.Line);
+  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr).Caret.Line);
 end;
 
 procedure efSetEditorCaretX(AMachine: IVForthMachine; AAthom: IVForthAthom;
@@ -615,11 +630,48 @@ end;
 procedure efSetEditorCaretLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  {TODO -oOnni -cGeneral : Line только для чтения}
-  //GlApp.GetEditor(AMachine, PAthomStr).Caret.Line := AMachine.PopInt;
+  { TODO -oOnni -cGeneral : Line только для чтения }
+  // GlApp.GetEditor(AMachine, PAthomStr).Caret.Line := AMachine.PopInt;
   AMachine.StdErr('Readonly property');
 end;
 
+procedure efEditorInsert(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  e: TEceEditorWindow;
+  c: TCaret;
+  s: string;
+begin
+  e := GlApp.GetEditor(AMachine, PAthomStr);
+  c := e.Caret;
+  s := AMachine.PopString;
+  e.Lines[c.Line].Insert(s, c.X + 1);
+  c.X := c.X + Length(s);
+end;
+
+procedure efEditorInsertXY(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  e: TEceEditorWindow;
+  l, c: Integer;
+begin
+  e := GlApp.GetEditor(AMachine, PAthomStr);
+  l := AMachine.PopInt;
+  c := AMachine.PopInt;
+  e.Lines[l].Insert(AMachine.PopString, c + 1);
+end;
+
+procedure efEditorOwerwrite(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  { TODO -oOnni -cGeneral : Owerwrite }
+end;
+
+procedure efEditorOwerwriteXY(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  { TODO -oOnni -cGeneral : OwerwriteXY }
+end;
 {$ENDIF}
 {$ENDREGION}
 {$IFDEF forth}
@@ -657,6 +709,11 @@ begin
   AddAthom('SetEditorCaretX', efSetEditorCaretX, true);
   AddAthom('SetEditorCaretY', efSetEditorCaretY, true);
   AddAthom('SetEditorCaretLine', efSetEditorCaretLine, true);
+
+  AddAthom('EditorInsert', efEditorInsert, true);
+  AddAthom('EditorInsertXY', efEditorInsertXY, true);
+  AddAthom('EditorOwerwrite', efEditorOwerwrite, true);
+  AddAthom('EditorOwerwriteXY', efEditorOwerwriteXY, true);
 end;
 {$ENDIF}
 

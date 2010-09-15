@@ -115,6 +115,13 @@ begin
 //    end;
     // AMachine.Push(AMachine.DataStack[1].Convert(vtInteger));
     AMachine.PushAddr(AMachine.CourientTkIndex);
+
+    AMachine.Stack := s;
+    //если вызывают Do@ то кладем в стек счетчик цикла
+    if PAthomStr[2] = '@' then
+    begin
+      AMachine.Push(v1);
+    end;
   finally
     // Возвращаемя на старый стек
     AMachine.Stack := s;
@@ -127,6 +134,7 @@ var
   v0, v1: IVForthVariant;
   v1v: Integer;
   s: TForthStack;
+  Addr: Integer;
 begin
   try
     s := AMachine.Stack;
@@ -145,7 +153,14 @@ begin
     begin
       v1.IntValue := v1v + 1;
       // AMachine.PushInt(v1v + 1);
-      AMachine.CourientTkIndex := AMachine.ReturnAddr;
+      addr := AMachine.ReturnAddr;
+      AMachine.CourientTkIndex := addr;
+      //Если там Do@ то кладем переменную в вершину стека
+      if Pchar(AMachine.GetTk(Addr))[2]='@' then
+      begin
+        AMachine.Stack := s;
+        AMachine.Push(v1);
+      end;
     end
     else
     // if v1v = v0.IntValue then
@@ -522,6 +537,7 @@ begin
   AMachine.AddAthom(CreateVForthSystemAthom('raise', self, VfRaise));
 
   AMachine.AddAthom(CreateVForthSystemAthom('do', self, VfDo));
+  AMachine.AddAthom(CreateVForthSystemAthom('do@', self, VfDo));
   AMachine.AddAthom(CreateVForthSystemAthom('loop', self, VfLoop));
 
   AMachine.AddAthom(CreateVForthSystemAthom('begin', self, VfBegin));
