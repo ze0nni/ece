@@ -1,20 +1,45 @@
 ( Удаляем "висячие" пробелы )
-:clearr ( -- )
-	GetEditorLinesCount 1 - var i
-	i 0 do
+:clr ( -- )
+	GetEditorLinesCount 1 -  var i i 0 do
 		i GetEditorLine
-		( todo: Добавить код для "срезания" пробелов справа )
-		i Swap SetEditorLine
+
+		i SetEditorLine
 	loop
-	drop
-	InvalidateEditor
+	drop		
+;
+
+
+:cls ( очищает строку )
+( -- )
+	"" GetEditorCaretLine SetEditorLine
 ;
 
 ( Очищаем редактор )
-:cleara ( -- )
+:da ( -- )
 	GetEditorLinesCount 1 - 0 do
 		0 DeleteEditorLine
 	loop
 	AddEditorLine
-	InvaLidateEditor drop
+	InvaLidateEditor
 ;
+
+:du ( удаляет n строк вверх, начитая с текущей )
+    ( n -- )
+
+;
+
+:dd ( удаляет n строк вниз, начитая с текущей )
+    dup 0 <> if
+	GetEditorCaretLine + 1 -  var i
+    i GetEditorCaretLine do
+        i DeleteEditorLine
+    loop
+    drop
+else
+    drop
+    then
+;
+
+:ETime Now Time EditorInsert;
+:EDate Now Date EditorInsert;
+:EDTime Now DateTime EditorInsert;
