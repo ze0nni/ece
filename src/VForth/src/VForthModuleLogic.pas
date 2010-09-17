@@ -120,7 +120,7 @@ begin
     //если вызывают Do@ то кладем в стек счетчик цикла
     if PAthomStr[2] = '@' then
     begin
-      AMachine.Push(v1);
+      AMachine.PushInt(v1.IntValue);
     end;
   finally
     // Возвращаемя на старый стек
@@ -159,7 +159,7 @@ begin
       if Pchar(AMachine.GetTk(Addr))[2]='@' then
       begin
         AMachine.Stack := s;
-        AMachine.Push(v1);
+        AMachine.PushInt(v1.IntValue);
       end;
     end
     else
@@ -545,22 +545,23 @@ begin
 
   AMachine.AddAthom(CreateVForthSystemAthom('=', self, VfEq));
   AMachine.AddAthom(CreateVForthSystemAthom('<>', self, VfNEq));
+  AMachine.AddAthom(CreateVForthSystemAthom('!=', self, VfNEq));
   AMachine.AddAthom(CreateVForthSystemAthom('>', self, VfHi));
   AMachine.AddAthom(CreateVForthSystemAthom('<', self, VfLo));
   AMachine.AddAthom(CreateVForthSystemAthom('>=', self, VfHiE));
   AMachine.AddAthom(CreateVForthSystemAthom('<=', self, VfLoE));
 
-  AMachine.AddAthom(CreateVForthSystemAthom('and*', self, VfAnd));
-  AMachine.AddAthom(CreateVForthSystemAthom('or*', self, VfOr));
-  AMachine.AddAthom(CreateVForthSystemAthom('xor*', self, VfXor));
-  AMachine.AddAthom(CreateVForthSystemAthom('not*', self, VfNot));
-  AMachine.AddAthom(CreateVForthSystemAthom('shl*', self, VfShl));
-  AMachine.AddAthom(CreateVForthSystemAthom('shr*', self, VfShr));
+  AMachine.AddAthom(CreateVForthSystemAthom('&', self, VfAnd));
+  AMachine.AddAthom(CreateVForthSystemAthom('|', self, VfOr));
+  AMachine.AddAthom(CreateVForthSystemAthom('^', self, VfXor));
+  AMachine.AddAthom(CreateVForthSystemAthom('~', self, VfNot));
+  AMachine.AddAthom(CreateVForthSystemAthom('<<', self, VfShl));
+  AMachine.AddAthom(CreateVForthSystemAthom('>>', self, VfShr));
 
-  AMachine.AddAthom(CreateVForthSystemAthom('and', self, VfAndL));
-  AMachine.AddAthom(CreateVForthSystemAthom('or', self, VfOrL));
-  AMachine.AddAthom(CreateVForthSystemAthom('xor', self, VfXorL));
-  AMachine.AddAthom(CreateVForthSystemAthom('not', self, VfNotL));
+  AMachine.AddAthom(CreateVForthSystemAthom('&&', self, VfAndL));
+  AMachine.AddAthom(CreateVForthSystemAthom('||', self, VfOrL));
+  //AMachine.AddAthom(CreateVForthSystemAthom('xor', self, VfXorL));
+  AMachine.AddAthom(CreateVForthSystemAthom('!', self, VfNotL));
 end;
 
 end.

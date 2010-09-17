@@ -180,6 +180,7 @@ const
   TK_NEWATHOM = 7;
   // Переменная
   TK_VARIABLE = 8;
+  TK_VARIABLECLONE = 9;
 
 const
   SpaceChars = [#9, #10, #13, #32];
@@ -189,20 +190,27 @@ type
     tkFloat = integer(TK_FLOAT), tkNatural = integer(TK_NATURAL),
     tkComplex = integer(TK_COMPLEX), tkString = integer(TK_STRING),
     tkAthom = integer(TK_ATHOM), tkNewAthom = integer(TK_NEWATHOM),
-    tkVariable = integer(TK_VARIABLE));
+    tkVariable = integer(TK_VARIABLE),
+    tkVariableClone = TK_VARIABLECLONE);
 
 procedure TVForthMachine.ParseString(ACode: string; TkList: TStringList);
 
 var
   SChar, CChar, EChar: PChar;
+  TempTk: TStringList;
+  StackPos: integer;
+  v: IVForthVariant;
+  IIndex: Integer;
 {$REGION 'Процедуры для парсинга'}
+{$REGION 'ScanForSpaces'}
   procedure ScanForSpaces;
   begin
     repeat
       inc(CChar)
     until (not(CChar^ in SpaceChars)) or (CChar = EChar);
   end;
-
+{$ENDREGION}
+{$REGION 'ScanForString'}
   function ScanForString: string;
   begin
     SChar := CChar;
@@ -214,7 +222,8 @@ var
     Result := Copy(SChar, 2, CChar - SChar - 1);
     inc(CChar);
   end;
-
+{$ENDREGION}
+{$REGION 'ScanForNewAthom'}
   function ScanForNewAthom: string;
   begin
     SChar := CChar;
@@ -226,7 +235,8 @@ var
     Result := Copy(SChar, 2, CChar - SChar - 1);
     inc(CChar);
   end;
-
+{$ENDREGION}
+{$REGION 'ScanForComments'}
   function ScanForComments: string;
   begin
     SChar := CChar;
@@ -235,10 +245,24 @@ var
       // комметрий заканчивается на #32')'
     until ((CChar^ = ')') and ((CChar - 1)^ in SpaceChars)) or (CChar = EChar);
     // Первый и последний символы не входят в состав
+    // Result := Copy(SChar, 2, CChar - SChar - 1);
+    inc(CChar);
+  end;
+{$ENDREGION}
+{$REGION 'ScanForCmpMode'}
+  function ScanForCmpMode: string;
+  begin
+    SChar := CChar;
+    repeat
+      inc(CChar);
+      // заканчивается на #32']'
+    until ((CChar^ = ']') and ((CChar - 1)^ in SpaceChars)) or (CChar = EChar);
+    // Первый и последний символы не входят в состав
     Result := Copy(SChar, 2, CChar - SChar - 1);
     inc(CChar);
   end;
-
+{$ENDREGION}
+{$REGION 'ScanForAthom'}
   function ScanForAthom: string;
   begin
     SChar := CChar;
@@ -248,7 +272,8 @@ var
     Result := Copy(SChar, 1, CChar - SChar);
     inc(CChar); // пропускаем пробел за нами
   end;
-
+{$ENDREGION}
+{$REGION 'ScanForAthomAndAdd'}
   procedure ScanForAthomAndAdd;
   var
     Tk: String;
@@ -301,9 +326,11 @@ var
     end;
   end;
 {$ENDREGION}
+{$ENDREGION}
 
 var
   pQtk: PQStruct;
+  pI : ^IInterface;
 begin
   SChar := PChar(ACode);
   CChar := SChar;
@@ -311,30 +338,33 @@ begin
   while (CChar < EChar) do
   begin
     case CChar^ of
-      // пропускаем пробелы
       #9, #10, #13, #32:
+{$REGION 'пропускаем пробелы'}
         begin
           ScanForSpaces;
           continue;
         end;
-      // Ищем строки
+{$ENDREGION}
       '"':
+{$REGION 'Ищем строки'}
         begin
           new(pQtk);
           pQtk.TkType := TK_STRING;
           TkList.AddObject(ScanForString, TObject(pQtk));
           continue;
         end;
-      // Ищем объявления атомов
+{$ENDREGION}
       ':':
+{$REGION 'Ищем объявления атомов'}
         begin
           new(pQtk);
           pQtk.TkType := TK_NEWATHOM;
           TkList.AddObject(ScanForNewAthom, TObject(pQtk));
           continue;
         end;
-      // Ищем комментарии
+{$ENDREGION}
       '(':
+{$REGION 'Ищем комментарии'}
         begin
           // комметрий начинается с '('#32
           if (CChar < EChar - 1) and ((CChar + 1)^ in SpaceChars) then
@@ -344,12 +374,58 @@ begin
             ScanForAthomAndAdd;
           continue;
         end;
+{$ENDREGION}
+      '[':
+{$REGION 'Переходим в режим компиляции'}
+        // то что находится между квадраттыми скобками - компилируется на лету
+        // после этого берется после этого берутся переменные добавленные в стек
+        // и кладутся вкод
+        // 0 10 do@ [ 3,14 2 sqr *  ] * . space loop
+        // Например в этом кода выражение "[ 3,14 2 sqr *  ]" посчитает
+        // еще до начала цикла, а вместо него будет  25,12
+        // 0 10 do@ 25,12 * . space loop
+        begin
+          // комметрий начинается с '('#32
+          if (CChar < EChar - 1) and ((CChar + 1)^ in SpaceChars) then
+          begin
+            try
+              TempTk := TStringList.Create;
+              ParseString(ScanForCmpMode, TempTk);
+
+              StackPos := DataStackSize;
+              ExecuteTkList(TempTk);
+
+              if DataStackSize < StackPos then
+                raise EVForthMachineError.Create('Stack must grow');
+
+              IIndex:= 0;
+              while DataStackSize > StackPos do
+              begin
+                new(pQtk);
+                pQtk.TkType := TK_VARIABLECLONE;
+                new(pI);
+                pI^ := Pop;
+                pQTk.Data := pI;
+                TkList.InsertObject(TkList.Count - IIndex, '', TObject(pQtk));
+                inc(IIndex);
+              end;
+            finally
+              TempTk.Free;
+            end;
+          end
+          else
+            // Если нет, то ищем атомы
+            ScanForAthomAndAdd;
+          continue;
+        end;
+{$ENDREGION}
     else
-      // Если ни чего не нащли ищем просто атомы (или то что можно положить в стек)
+{$REGION 'Если ни чего не нашли - ищем атомы (или то, что можно положить в стек)'}
       begin
         ScanForAthomAndAdd
         // continue
       end;
+{$ENDREGION}
     end;
   end
 end;
@@ -408,6 +484,7 @@ var
   pQtk: PQStruct;
   index: integer;
   pI: ^IInterface;
+  v: IVForthVariant;
 begin
   FLastTkIndex := FCourientTkIndex;
   FCourientTk := TkList;
@@ -479,6 +556,14 @@ begin
               Push(Varible[TkLine]);
             end;
           i := FCourientTkIndex; // Ветвление и циклы
+        end;
+      tkVariableClone:
+        begin
+          pQtk := Pointer(TkList.Objects[i]);
+          pI := pQtk^.Data;
+          v := IVForthVariant(pI^);
+          //создаем клон
+          Push(v.Convert(v.VariantType));
         end;
       tkNewAthom:
         begin
@@ -576,6 +661,7 @@ procedure TVForthMachine.ClearTkList(l: TStringList);
 var
   i: integer;
   pQtk: PQStruct;
+  pI: ^IInterface;
 begin
   for i := 0 to l.Count - 1 do
   begin
@@ -587,6 +673,12 @@ begin
         Dispose(pQtk^.PFloat);
       tkNatural, tkComplex:
         raise Exception.Create('Обработать');
+      tkVariableClone:
+        begin
+          pI := pQtk^.Data;
+          pI^ := nil;
+          Dispose(pI);
+        end;
     end;
   end;
   l.Clear;
@@ -773,7 +865,7 @@ end;
 function TVForthMachine.Pop: IVForthVariant;
 begin
   if FDataStack.Count = 0 then
-    raise EVForthMachineError.Create(StrStackIsEmpty);
+     raise EVForthMachineError.Create(StrStackIsEmpty);
   Result := IVForthVariant(FDataStack[0]);
   FDataStack.Delete(0);
 end;
