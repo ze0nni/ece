@@ -1,1 +1,1 @@
-{$define forth}
+//{$define forth}

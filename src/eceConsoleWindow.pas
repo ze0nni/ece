@@ -121,6 +121,8 @@ procedure StdProc(con: TEceConsoleWindow; AText: string; AReturn: Boolean;
 var
   Ls: TStringList;
   i: Integer;
+
+  Line: TConsoleLine;
 begin
   try
     { TODO -oOnni -cGeneral : Разбивать на строки }
@@ -128,6 +130,10 @@ begin
     Ls.Text := AText;
     for i := 0 to Ls.Count - 1 do
     begin
+{$IFNDEF forth}
+      Line := TConsoleLine(con.AddLine);
+      Line.LineType := t;
+{$ENDIF}
       OutputLine(Ls[i]);
     end;
   finally
@@ -208,8 +214,9 @@ begin
 {$ENDIF}
       l.LoadFromFile(FScriptSource);
 {$IFDEF forth}
-      {TODO -oOnni -cGeneral : После модификации перестал работать с могосрочным текстом?}
-      FVForthMachine.AddCode(StringReplace(l.Text, #13#10, #32, [rfReplaceAll]));
+      { TODO -oOnni -cGeneral : После модификации перестал работать с могосрочным текстом? }
+      FVForthMachine.AddCode(StringReplace(l.Text, #13#10, #32, [rfReplaceAll])
+        );
 {$ELSE}
       FIfopKernel.AddCode(l.Text);
 {$ENDIF}
@@ -245,7 +252,7 @@ var
   str: String;
   index: Integer;
   i: Integer;
-  doc : IEceDocument;
+  doc: IEceDocument;
 begin
   FHistoryIndex := -1;
   case msg.CharCode of
@@ -260,9 +267,9 @@ begin
               doc._BeginUpdate;
             end;
 
-                str := Strings[Count - 1];
+            str := Strings[Count - 1];
 {$IFDEF forth}
-             FVForthMachine.AddCode(str);
+            FVForthMachine.AddCode(str);
 {$ELSE}
             FIfopKernel.AddCode(str);
 {$ENDIF}

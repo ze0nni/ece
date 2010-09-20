@@ -33,7 +33,7 @@ var
   App: TEceAppWindow;
   msg: tmsg;
 
-begin
+  begin
 {$IFNDEF FPC}
   //ReportMemoryLeaksOnShutdown := true;
 {$ENDIF}
