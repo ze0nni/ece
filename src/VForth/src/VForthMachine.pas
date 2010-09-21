@@ -190,8 +190,7 @@ type
     tkFloat = integer(TK_FLOAT), tkNatural = integer(TK_NATURAL),
     tkComplex = integer(TK_COMPLEX), tkString = integer(TK_STRING),
     tkAthom = integer(TK_ATHOM), tkNewAthom = integer(TK_NEWATHOM),
-    tkVariable = integer(TK_VARIABLE),
-    tkVariableClone = TK_VARIABLECLONE);
+    tkVariable = integer(TK_VARIABLE), tkVariableClone = TK_VARIABLECLONE);
 
 procedure TVForthMachine.ParseString(ACode: string; TkList: TStringList);
 
@@ -200,7 +199,7 @@ var
   TempTk: TStringList;
   StackPos: integer;
   v: IVForthVariant;
-  IIndex: Integer;
+  IIndex: integer;
 {$REGION 'Процедуры для парсинга'}
 {$REGION 'ScanForSpaces'}
   procedure ScanForSpaces;
@@ -330,7 +329,7 @@ var
 
 var
   pQtk: PQStruct;
-  pI : ^IInterface;
+  pI: ^IInterface;
 begin
   SChar := PChar(ACode);
   CChar := SChar;
@@ -398,14 +397,14 @@ begin
               if DataStackSize < StackPos then
                 raise EVForthMachineError.Create('Stack must grow');
 
-              IIndex:= 0;
+              IIndex := 0;
               while DataStackSize > StackPos do
               begin
                 new(pQtk);
                 pQtk.TkType := TK_VARIABLECLONE;
                 new(pI);
                 pI^ := Pop;
-                pQTk.Data := pI;
+                pQtk.Data := pI;
                 TkList.InsertObject(TkList.Count - IIndex, '', TObject(pQtk));
                 inc(IIndex);
               end;
@@ -487,12 +486,12 @@ var
   v: IVForthVariant;
 begin
   FLastTkIndex := FCourientTkIndex;
-  FCourientTk := TkList;
   i := -1;
   while i < TkList.Count - 1 do
   begin
     inc(i);
     FCourientTkIndex := i; // Ветвление и циклы
+    FCourientTk := TkList;
     TkLine := TkList[i];
     pQtk := Pointer(TkList.Objects[i]);
     case TTokenType(pQtk^.TkType) of
@@ -562,7 +561,7 @@ begin
           pQtk := Pointer(TkList.Objects[i]);
           pI := pQtk^.Data;
           v := IVForthVariant(pI^);
-          //создаем клон
+          // создаем клон
           Push(v.Convert(v.VariantType));
         end;
       tkNewAthom:
@@ -865,7 +864,7 @@ end;
 function TVForthMachine.Pop: IVForthVariant;
 begin
   if FDataStack.Count = 0 then
-     raise EVForthMachineError.Create(StrStackIsEmpty);
+    raise EVForthMachineError.Create(StrStackIsEmpty);
   Result := IVForthVariant(FDataStack[0]);
   FDataStack.Delete(0);
 end;

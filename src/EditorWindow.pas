@@ -1046,6 +1046,7 @@ begin
   ReadStyle('Comments.Line');
   ReadStyle('Comments.Block');
   ReadStyle('Keywords');
+  ReadStyle('Functions');
   ReadStyle('Commands');
   ReadStyle('Operator');
   ReadStyle('Strings');

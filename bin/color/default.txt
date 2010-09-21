@@ -18,6 +18,10 @@ Keywords.Background.Color=-1
 Keywords.Text.Color=$80e0e0
 Keywords.Text.Style=Bold
 
+Functions.Background.Color=-1
+Functions.Text.Color=$80e080
+Functions.Text.Style=Bold
+
 Commands
 
 Operator.Background.Color=-1

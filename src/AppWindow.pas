@@ -25,6 +25,16 @@ uses
 type
   PGetPlugin = function: IEcePlugin; safecall;
 
+  PMenuItem = ^TMenuItem;
+
+  TMenuItem = record
+    Handle: HMENU;
+    ID: Word;
+    Action: string;
+    EnableTest: string;
+    VisibleTest: string;
+  end;
+
   TEceAppWindow = class(TzeWndControl, IEceApplication, IDispatch
 {$IFDEF forth}, IVForthModule {$ENDIF})
   protected
@@ -32,6 +42,8 @@ type
     FDocuments: TList;
     FPages: TPages;
     FActiveDocument: Integer;
+    FMenus: TStringList;
+    FMenuID: Word;
 {$IFDEF forth}
     FModuleProp: TStringList;
 {$ENDIF}
@@ -44,10 +56,19 @@ type
     procedure wmDestroy(var msg: TWMDestroy);
     message WM_DESTROY;
 
+    procedure wmDrawItem(var msg: TWMDrawItem);
+    message WM_DRAWITEM;
+    procedure wmMeasureItem(var msg: TWMMeasureItem);
+    message WM_MEASUREITEM;
+    procedure wmCommand(var msg: TWMCommand);
+    message WM_COMMAND;
+
     function GetDocumentsCount: Integer;
     function GetDocuments(const index: Integer): TEceDocumentWindow;
     procedure SetActiveDocument(const value: Integer);
     function GetActiveDocumentWindow: TEceDocumentWindow;
+    procedure AppendMenu(AName, AAction, EnableTest, VisibleTest,
+      Image: string);
 {$IFDEF forth}
     function GetModule: IVForthModule; stdcall;
     procedure SetProp(AProp, AValue: string); stdcall;
@@ -67,6 +88,8 @@ type
       : Integer; safecall;
     procedure _FocusToActiveDocument; stdcall;
     procedure _UpdateCaption; safecall;
+  private
+    function GethMenu(APath: string; var MenuName: string): HMENU;
   protected
     function InvokeName(DispID: Integer; const IID: TGUID; LocaleID: Integer;
       Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
@@ -144,7 +167,7 @@ end;
 
 function TEceAppWindow._GetHandle: HWND; safecall;
 begin
-  Result := handle;
+  Result := Handle;
 end;
 
 procedure TEceAppWindow._UpdateCaption;
@@ -165,11 +188,11 @@ begin
   inherited;
   if ActiveDocumentWindow = nil then
     exit;
-  GetClientRect(handle, rt);
-  SetWindowPos(FPages.handle, 0, 0, 0, rt.Right, 24, 0);
-  SetWindowPos(ActiveDocumentWindow.handle, 0, 0, 24, rt.Right,
+  GetClientRect(Handle, rt);
+  SetWindowPos(FPages.Handle, 0, 0, 0, rt.Right, 24, 0);
+  SetWindowPos(ActiveDocumentWindow.Handle, 0, 0, 24, rt.Right,
     rt.Bottom - 24 - 105, 0);
-  SetWindowPos(FConsole.handle, 0, 0, rt.Bottom - 105, rt.Right, 105, 0)
+  SetWindowPos(FConsole.Handle, 0, 0, rt.Bottom - 105, rt.Right, 105, 0)
 end;
 
 procedure TEceAppWindow.wmSetFocus(var msg: TWmSetFocus);
@@ -180,19 +203,70 @@ begin
   ActiveDocumentWindow.SetFocus;
 end;
 
+procedure TEceAppWindow.wmCommand(var msg: TWMCommand);
+var
+  mi : PMenuItem;
+  mif : TMenuItemInfo;
+  Menu : HMENU;
+begin
+  Menu := GetMenu(Handle);
+  ZeroMemory(@mif, SizeOf(mif));
+  Mif.cbSize := SizeOf(mif);
+  mif.fMask := MIIM_DATA;
+  if not GetMenuItemInfo(Menu, msg.ItemID, false, mif) then
+  begin
+    inherited;
+    exit;
+  end;
+  mi := Pointer(mif.dwItemData);
+  if mi <> nil then
+  try
+  FConsole.Machine.AddCode(mi^.Action);
+  except
+    on e: Exception do
+      MessageBox(Handle, PChar(format('%s: %s', [e.ClassName, e.Message])), nil, MB_ICONERROR);
+  end;
+end;
+
 procedure TEceAppWindow.wmDestroy(var msg: TWMDestroy);
 begin
   inherited;
   PostQuitMessage(0);
 end;
 
+procedure TEceAppWindow.wmMeasureItem(var msg: TWMMeasureItem);
+var
+  dc: HDC;
+begin
+  { TODO -oOnni -cGeneral : WM_MEASUREITEM не проходит }
+  if msg.MeasureItemStruct^.itemHeight < 18 then
+    msg.MeasureItemStruct^.itemHeight := 18;
+  msg.MeasureItemStruct^.itemWidth := 120;
+end;
+
+procedure TEceAppWindow.wmDrawItem(var msg: TWMDrawItem);
+var
+  dc: HDC;
+begin
+
+end;
+
 Constructor TEceAppWindow.Create(AParent: Cardinal);
+var
+  Menu: HMENU;
 begin
   inherited;
+{$IFDEF forth}
+  GlApp := Self;
+  Menu := CreateMenu;
+  SetMenu(Handle, Menu);
+{$ENDIF}
+  FMenus := TStringList.Create;
+
   FDocuments := TList.Create;
-  FPages := TPages.Create(handle);
-  ShowWindow(FPages.handle, SW_SHOW);
-  FConsole := TEceConsoleWindow.Create(handle, Self);
+  FPages := TPages.Create(Handle);
+  ShowWindow(FPages.Handle, SW_SHOW);
+  FConsole := TEceConsoleWindow.Create(Handle, Self);
   FConsole.LoadColorTheme('color\console.txt');
   FConsole.SetFont('Consolas', 14);
   FConsole.Caret.Style := csClassic;
@@ -220,9 +294,6 @@ begin
   RegisterName('ActiveDocument', PROP_ACTIVEDOCUMENT);
 
   UpdateCaption;
-{$IFDEF forth}
-  GlApp := Self;
-{$ENDIF}
 end;
 
 Destructor TEceAppWindow.Destroy;
@@ -240,6 +311,10 @@ begin
   begin
     FConsole.Free;
   end;
+  if Assigned(FMenus) then
+  begin
+    FMenus.Free;
+  end;
 {$IFDEF forth}
   if Assigned(FModuleProp) then
     FModuleProp.Free;
@@ -251,9 +326,9 @@ procedure TEceAppWindow.NewDocument(AFileName: String);
 var
   NewDocument: TEceDocumentWindow;
 begin
-  NewDocument := TEceEditorWindow.Create(handle, Self);
+  NewDocument := TEceEditorWindow.Create(Handle, Self);
   FDocuments.Add(NewDocument);
-  SendMessage(handle, WM_SIZE, 0, 0);
+  SendMessage(Handle, WM_SIZE, 0, 0);
 end;
 
 function TEceAppWindow.CloseDocument(const index: Integer): boolean;
@@ -261,6 +336,91 @@ begin
   Documents[index].Free; // тут вылезет эксепшн приневерном индексе
   FDocuments.Delete(index);
   { todo: Нужно еще изменить текущий документ }
+end;
+
+function TEceAppWindow.GethMenu(APath: string; var MenuName: string): HMENU;
+var
+  sl: TStringList;
+  i: Integer;
+  Menu, PopUp: HMENU;
+  MenuPath: string;
+  index: Integer;
+  mi: PMenuItem;
+begin
+  sl := TStringList.Create;
+  try
+    Menu := GetMenu(Handle);
+    sl.Text := StringReplace(APath, '/', #13#10, [rfReplaceAll]);
+    for i := 0 to sl.Count - 2 do
+    begin
+      MenuPath := MenuPath + sl[i] + '\';
+      index := FMenus.IndexOf(MenuPath);
+      if index = -1 then
+      begin
+        new(mi);
+
+        PopUp := CreatePopupMenu;
+        mi^.Handle := PopUp;
+        FMenus.AddObject(MenuPath, Tobject(mi));
+
+        Windows.AppendMenu(Menu, MF_POPUP, PopUp, Pchar(sl[i]));
+      end
+      else
+      begin
+        mi := Pointer(FMenus.Objects[index]);
+        PopUp := mi^.Handle;
+      end;
+      Menu := PopUp;
+    end;
+  finally
+    MenuName := sl[sl.Count - 1];
+    sl.Free;
+    Result := PopUp;
+  end;
+end;
+
+procedure TEceAppWindow.AppendMenu(AName, AAction, EnableTest, VisibleTest,
+  Image: string);
+var
+  hBmp: HBITMAP;
+  Menu: HMENU;
+  MenuName: string;
+  m: HMenu;
+  mif : TMenuItemInfo;
+  mi : PMenuItem;
+begin
+  Menu := GethMenu(AName, MenuName);
+
+  inc(FMenuID); // Новый индекс
+
+  if MenuName <> '-' then
+  begin
+    Windows.AppendMenu(Menu, MF_STRING, FMenuID, Pchar(MenuName));
+    hBmp := LoadImage(HInstance, Pchar(Image), IMAGE_BITMAP, 0, 0,
+      LR_LOADFROMFILE or LR_LOADTRANSPARENT);
+    SetMenuItemBitmaps(Menu, FMenuID, MF_BYCOMMAND, hBmp, hBmp);
+
+    new(mi);
+    mi^.Handle := Menu;
+    mi^.ID := FMenuID;
+    mi^.Action := AAction;
+    mi^.EnableTest := EnableTest;
+    mi^.VisibleTest := VisibleTest;
+
+    ZeroMemory(@mif, Sizeof(mif));
+    mif.cbSize := SizeOf(Mif);
+    mif.fMask := MIIM_DATA;
+    mif.dwItemData := Integer(mi);
+
+    SetMenuItemInfo(Menu, FMenuID, false, mif);
+  end
+  else
+  begin
+    Windows.AppendMenu(Menu, MF_SEPARATOR, FMenuID, nil);
+  end;
+  m := GetMenu(Handle);
+  SetMenu(Handle, 0);
+  SetMenu(Handle, m)
 end;
 
 function TEceAppWindow.CloseAllDocuments: boolean;
@@ -296,7 +456,7 @@ begin
             VarResult[0] := Title;
           DISPATCH_SET:
             begin
-              SetWindowText(handle, Params[0]);
+              SetWindowText(Handle, Params[0]);
             end
           else
             exit(DISP_E_MEMBERNOTFOUND)
@@ -355,7 +515,7 @@ begin
     PROP_QUIT:
       case Flags of
         DISPATCH_SUB:
-          DestroyWindow(handle);
+          DestroyWindow(Handle);
       else
         exit(DISP_E_MEMBERNOTFOUND)
 
@@ -416,7 +576,7 @@ var
   LoadProc: PGetPlugin;
   Plugin: IEcePlugin;
 begin
-  hPlugin := LoadLibrary(PChar(AFileName));
+  hPlugin := LoadLibrary(Pchar(AFileName));
   if hPlugin = 0 then
     raise Exception.Create('Не удалось загрузить модуль ' + AFileName);
 
@@ -468,7 +628,7 @@ begin
   if (FActiveDocument < 0) or (FActiveDocument > DocumentsCount - 1) then
     Documents[FActiveDocument].SetFocus;
 
-  SendMessage(handle, WM_SIZE, 0, 0);
+  SendMessage(Handle, WM_SIZE, 0, 0);
   UpdateCaption;
 end;
 {$IFDEF forth}
@@ -588,7 +748,7 @@ var
 begin
   e := GlApp.GetEditor(AMachine, PAthomStr);
   if e.Count = 1 then
-    //Первую строчку удалять ну ни как нельзя
+    // Первую строчку удалять ну ни как нельзя
     e.Strings[0] := ''
   else
 
@@ -674,6 +834,22 @@ begin
 end;
 {$ENDIF}
 {$ENDREGION}
+{$REGION 'Menu'}
+
+procedure efAddEceMenuItem(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  vName, vAction, vEnable, vVisible, vImage: IVForthVariant;
+begin
+  vName := AMachine.Pop;
+  vAction := AMachine.Pop;
+  vEnable := AMachine.Pop;
+  vVisible := AMachine.Pop;
+  vImage := AMachine.Pop;
+  GlApp.AppendMenu(vName.StringValue, vAction.StringValue, vEnable.StringValue,
+    vVisible.StringValue, vImage.StringValue);
+end;
+{$ENDREGION}
 {$IFDEF forth}
 
 procedure TEceAppWindow.Register(AMachine: IVForthMachine);
@@ -714,6 +890,8 @@ begin
   AddAthom('EditorInsertXY', efEditorInsertXY, true);
   AddAthom('EditorOwerwrite', efEditorOwerwrite, true);
   AddAthom('EditorOwerwriteXY', efEditorOwerwriteXY, true);
+
+  AddAthom('AddEceMenuItem', efAddEceMenuItem, true);
 end;
 {$ENDIF}
 
@@ -731,7 +909,7 @@ begin
     Caption := Title + ' - ' + Caption;
     FPages.pages[ActiveDocument].Title := Title;
   end;
-  SetWindowText(handle, PChar(Caption))
+  SetWindowText(Handle, Pchar(Caption))
 end;
 
 function TEceAppWindow.GetActiveDocumentWindow: TEceDocumentWindow;
