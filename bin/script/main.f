@@ -54,7 +54,7 @@ drop ( MenuTools )
 TBSkin "helpabout.bmp" + 1 1 "helpabout" MenuHelp "About" + AddEceMenuItem
 drop ( MenuHelp )
 
-forget MenuSaparator
+( forget MenuSaparator )
 drop ( TSSkin )
   ( /------Главное меню-----/ )  
 
