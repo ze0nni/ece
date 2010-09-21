@@ -11,9 +11,9 @@ TBSkin "fileopen.bmp" + 1 1 "" MenuFile "Open..." +  AddEceMenuItem
 MenuFile MenuSaparator
 :emFileSave 
 	GetDocFileName "" = if 
-		"Нет имени файла для сохранения" raise
+		"Нет имени файла для сохранения." .err
 		else
-
+        "Функция не реализована." .out
 		then
 ;
 TBSkin "filesave.bmp" + 1 1 "emFileSave" MenuFile "Save" + AddEceMenuItem
@@ -24,29 +24,29 @@ TBSkin "fileexit.bmp" + 1 1 "emFileExit" MenuFile "Exit" + AddEceMenuItem
 drop ( MenuFile )
 
 "Edit/" var MenuEdit
-TBSkin "editundo.bmp" + 1 1 "emFileNew" MenuEdit "Undo" +  AddEceMenuItem
-TBSkin "editredo.bmp" + 1 1 "emFileOpen" MenuEdit "Redo" + AddEceMenuItem
+TBSkin "editundo.bmp" + 1 1 "emEditUndo" MenuEdit "Undo" +  AddEceMenuItem
+TBSkin "editredo.bmp" + 1 1 "emEditRedo" MenuEdit "Redo" + AddEceMenuItem
 MenuEdit MenuSaparator
-TBSkin "editcut.bmp" + 1 1 "emFileSave" MenuEdit "Cut" + AddEceMenuItem
-TBSkin "editcopy.bmp" + 1 1 "emFileSaveAs" MenuEdit "Copy" + AddEceMenuItem
-TBSkin "editpaste.bmp" + 1 1 "emFileClose" MenuEdit "Paste" + AddEceMenuItem
-TBSkin "editdelete.bmp" + 1 1 "emFileExit" MenuEdit "Delete" + AddEceMenuItem
+TBSkin "editcut.bmp" + 1 1 "emEditCut" MenuEdit "Cut" + AddEceMenuItem
+TBSkin "editcopy.bmp" + 1 1 "emEditCopy" MenuEdit "Copy" + AddEceMenuItem
+TBSkin "editpaste.bmp" + 1 1 "emEditPaste" MenuEdit "Paste" + AddEceMenuItem
+TBSkin "editdelete.bmp" + 1 1 "emEditDelete" MenuEdit "Delete" + AddEceMenuItem
 MenuEdit MenuSaparator
-TBSkin "editselectall.bmp" + 1 1 "emFileExit" MenuEdit "Select all" + AddEceMenuItem
+TBSkin "editselectall.bmp" + 1 1 "emEditSelectAll" MenuEdit "Select all" + AddEceMenuItem
 drop ( MenuEdit )
 
 "View/" var MenuView
     MenuView "Codepage/" + var MenuCodepage
-    TBSkin "viewcodepageutf8.bmp" + 1 1 "emFileExit" MenuCodepage "UTF-8" + AddEceMenuItem
-    TBSkin "viewcodepagecp1251.bmp" + 1 1 "emFileExit" MenuCodepage "CP1251" + AddEceMenuItem
-    TBSkin "viewcodepagekoi8-r.bmp" + 1 1 "emFileExit" MenuCodepage "KOI8-R" + AddEceMenuItem
-    TBSkin "viewcodepagecp866.bmp" + 1 1 "emFileExit" MenuCodepage "CP866" + AddEceMenuItem
+    TBSkin "viewcodepageutf8.bmp" + 1 1 "" MenuCodepage "UTF-8" + AddEceMenuItem
+    TBSkin "viewcodepagecp1251.bmp" + 1 1 "" MenuCodepage "CP1251" + AddEceMenuItem
+    TBSkin "viewcodepagekoi8-r.bmp" + 1 1 "" MenuCodepage "KOI8-R" + AddEceMenuItem
+    TBSkin "viewcodepagecp866.bmp" + 1 1 "" MenuCodepage "CP866" + AddEceMenuItem
     drop ( MenuCodepage )
 drop ( MenuView )
 
 "Tools/" var MenuTools
-TBSkin "viewcodepageutf8.bmp" + 1 1 "emFileExit" MenuTools "Make\tF9" + AddEceMenuItem
-TBSkin "viewcodepageutf8.bmp" + 1 1 "emFileExit" MenuTools "Make config..." + AddEceMenuItem
+TBSkin "viewcodepageutf8.bmp" + 1 1 "" MenuTools "Make\tF9" + AddEceMenuItem
+TBSkin "viewcodepageutf8.bmp" + 1 1 "" MenuTools "Make config..." + AddEceMenuItem
 drop ( MenuTools )
 
 "Help/" var MenuHelp
@@ -54,7 +54,6 @@ drop ( MenuTools )
 TBSkin "helpabout.bmp" + 1 1 "helpabout" MenuHelp "About" + AddEceMenuItem
 drop ( MenuHelp )
 
-( forget MenuSaparator )
 drop ( TSSkin )
   ( /------Главное меню-----/ )  
 
