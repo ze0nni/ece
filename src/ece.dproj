@@ -64,6 +64,8 @@
 				<ResourceType>Icon</ResourceType>
 				<ResourceId>appicon</ResourceId>
 			</RcItem>
+			<None Include="..\bin\script\main.f"/>
+			<None Include="..\bin\script\main.vbs"/>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
 			</BuildConfiguration>

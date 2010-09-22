@@ -84,5 +84,4 @@ var
       MessageBox(App.Handle, Pchar(E.ClassName + ': ' + E.Message), nil,
         MB_ICONERROR);
   end;
-
 end.

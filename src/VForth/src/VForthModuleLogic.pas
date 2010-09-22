@@ -1,4 +1,5 @@
 unit VForthModuleLogic;
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 
 interface
 
@@ -21,6 +22,11 @@ type
   public
     procedure Register(AMachine: IVForthMachine); stdcall;
   end;
+{$IFDEF fpc}
+
+const
+  CSTR_EQUAL = 2;
+{$ENDIF}
 
 implementation
 
@@ -109,17 +115,18 @@ begin
     AMachine.Stack := fsSystem;
     AMachine.Push(v1);
     AMachine.Push(v0);
-//    if v1.IntValue = v0.IntValue then
-//    begin
-//      SeekForExit(AMachine);
-//    end;
+    // if v1.IntValue = v0.IntValue then
+    // begin
+    // SeekForExit(AMachine);
+    // end;
     // AMachine.Push(AMachine.DataStack[1].Convert(vtInteger));
     AMachine.PushAddr(AMachine.CourientTkIndex);
 
     AMachine.Stack := s;
-    //если вызывают Do@ то кладем в стек счетчик цикла
+    // если вызывают Do@ то кладем в стек счетчик цикла
     if PAthomStr[2] = '@' then
     begin
+      //debug
       AMachine.PushInt(v1.IntValue);
     end;
   finally
@@ -153,10 +160,10 @@ begin
     begin
       v1.IntValue := v1v + 1;
       // AMachine.PushInt(v1v + 1);
-      addr := AMachine.ReturnAddr;
-      AMachine.CourientTkIndex := addr;
-      //Если там Do@ то кладем переменную в вершину стека
-      if Pchar(AMachine.GetTk(Addr))[2]='@' then
+      Addr := AMachine.ReturnAddr;
+      AMachine.CourientTkIndex := Addr;
+      // Если там Do@ то кладем переменную в вершину стека
+      if Pchar(AMachine.GetTk(Addr))[2] = '@' then
       begin
         AMachine.Stack := s;
         AMachine.PushInt(v1.IntValue);
@@ -560,7 +567,7 @@ begin
 
   AMachine.AddAthom(CreateVForthSystemAthom('&&', self, VfAndL));
   AMachine.AddAthom(CreateVForthSystemAthom('||', self, VfOrL));
-  //AMachine.AddAthom(CreateVForthSystemAthom('xor', self, VfXorL));
+  // AMachine.AddAthom(CreateVForthSystemAthom('xor', self, VfXorL));
   AMachine.AddAthom(CreateVForthSystemAthom('!', self, VfNotL));
 end;
 

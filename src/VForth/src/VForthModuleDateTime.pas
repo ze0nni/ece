@@ -1,5 +1,5 @@
 unit VForthModuleDateTime;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 uses

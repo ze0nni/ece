@@ -1,5 +1,5 @@
 unit VForthVariantString;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 uses

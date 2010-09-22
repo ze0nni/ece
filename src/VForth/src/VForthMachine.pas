@@ -1,4 +1,5 @@
 unit VForthMachine;
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 
 interface
 
@@ -135,6 +136,11 @@ type
     property TkCount: integer read GetTkCount;
     function GetTk(index: integer): string; stdcall;
   end;
+{$IFDEF fpc}
+
+const
+  CSTR_EQUAL = 2;
+{$ENDIF}
 
 implementation
 
@@ -484,6 +490,7 @@ var
   index: integer;
   pI: ^IInterface;
   v: IVForthVariant;
+  AWideStr: WideString;
 begin
   FLastTkIndex := FCourientTkIndex;
   i := -1;
@@ -548,7 +555,13 @@ begin
             if TryGetAthom(TkLine, a) then
 {$ENDIF}
             begin
-              a.Execute(Self, PWideChar(TkLine))
+{$IFDEF fpc}
+              {TODO -oOnni -cGeneral : ВЫзов для FPC накладнее}
+              AWideStr := TkLine;
+              a.Execute(Self, PWideChar(AWideStr));
+{$ELSE}
+              a.Execute(Self, PWideChar(TkLine));
+{$ENDIF}
             end
             else
             begin

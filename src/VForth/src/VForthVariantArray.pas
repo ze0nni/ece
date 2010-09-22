@@ -1,5 +1,5 @@
 unit VForthVariantArray;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 uses

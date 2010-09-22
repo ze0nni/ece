@@ -60,7 +60,9 @@
 			<DCCReference Include="VForthModule.pas"/>
 			<DCCReference Include="VForthModuleDateTime.pas"/>
 			<DCCReference Include="VForthVariantArray.pas"/>
-			<DCCReference Include="VForthModuleWin32.pas"/>
+			<DCCReference Include="VForthModuleWin32.pas">
+				<Form>/VForthModuleOle in &apos;VForthModuleOle.pas&apos;;</Form>
+			</DCCReference>
 			<RcItem Include="icon.ico">
 				<ResourceType>Icon</ResourceType>
 				<ResourceId>ApplicationIcon</ResourceId>

@@ -14,6 +14,7 @@ uses
   Classes,
   SysUtils,
   ActiveX,
+  CommCtrl,
   // zeError,
   zeWndControls,
   zePages,
@@ -44,6 +45,7 @@ type
     FActiveDocument: Integer;
     FMenus: TStringList;
     FMenuID: Word;
+    FToolBar: HWND;
 {$IFDEF forth}
     FModuleProp: TStringList;
 {$ENDIF}
@@ -115,15 +117,15 @@ type
     property Console: TEceConsoleWindow read FConsole;
   end;
 
+var
+  GlApp: TEceAppWindow;
+
 implementation
 
 {$IFDEF forth}
 
 uses
   VForthAthom;
-
-var
-  GlApp: TEceAppWindow;
 {$ENDIF}
 
 const
@@ -184,14 +186,18 @@ end;
 procedure TEceAppWindow.wmSize(var msg: TWMSize);
 var
   rt: Trect;
+  tbRect: Trect;
 begin
   inherited;
   if ActiveDocumentWindow = nil then
     exit;
   GetClientRect(Handle, rt);
-  SetWindowPos(FPages.Handle, 0, 0, 0, rt.Right, 24, 0);
-  SetWindowPos(ActiveDocumentWindow.Handle, 0, 0, 24, rt.Right,
-    rt.Bottom - 24 - 105, 0);
+  GetClientRect(FToolBar, tbRect);
+  SetWindowPos(FToolBar, 0, 0, 0, tbRect.Bottom, rt.Right, SWP_NOMOVE);
+
+  SetWindowPos(FPages.Handle, 0, 0, tbRect.Bottom, rt.Right, 24, 0);
+  SetWindowPos(ActiveDocumentWindow.Handle, 0, 0, tbRect.Bottom + 24, rt.Right,
+    rt.Bottom - 24 - 105 - tbRect.Bottom, 0);
   SetWindowPos(FConsole.Handle, 0, 0, rt.Bottom - 105, rt.Right, 105, 0)
 end;
 
@@ -205,13 +211,13 @@ end;
 
 procedure TEceAppWindow.wmCommand(var msg: TWMCommand);
 var
-  mi : PMenuItem;
-  mif : TMenuItemInfo;
-  Menu : HMENU;
+  mi: PMenuItem;
+  mif: TMenuItemInfo;
+  Menu: HMENU;
 begin
   Menu := GetMenu(Handle);
   ZeroMemory(@mif, SizeOf(mif));
-  Mif.cbSize := SizeOf(mif);
+  mif.cbSize := SizeOf(mif);
   mif.fMask := MIIM_DATA;
   if not GetMenuItemInfo(Menu, msg.ItemID, false, mif) then
   begin
@@ -220,12 +226,13 @@ begin
   end;
   mi := Pointer(mif.dwItemData);
   if mi <> nil then
-  try
-  FConsole.Machine.AddCode(mi^.Action);
-  except
-    on e: Exception do
-      MessageBox(Handle, PChar(format('%s: %s', [e.ClassName, e.Message])), nil, MB_ICONERROR);
-  end;
+    try
+      FConsole.Machine.AddCode(mi^.Action);
+    except
+      on e: Exception do
+        MessageBox(Handle, PChar(format('%s: %s', [e.ClassName, e.Message])),
+          nil, MB_ICONERROR);
+    end;
 end;
 
 procedure TEceAppWindow.wmDestroy(var msg: TWMDestroy);
@@ -262,6 +269,12 @@ begin
   SetMenu(Handle, Menu);
 {$ENDIF}
   FMenus := TStringList.Create;
+
+  // ToolBAr
+  FToolBar := CreateWindowEx
+    (TBSTYLE_EX_DOUBLEBUFFER or TBSTYLE_EX_DRAWDDARROWS, TOOLBARCLASSNAME,
+    'ToolBar', WS_VISIBLE or WS_CHILD or TBSTYLE_WRAPABLE or TBSTYLE_TOOLTIPS,
+    0, 0, 512, 24, Handle, 0, HInstance, nil);
 
   FDocuments := TList.Create;
   FPages := TPages.Create(Handle);
@@ -363,7 +376,7 @@ begin
         mi^.Handle := PopUp;
         FMenus.AddObject(MenuPath, Tobject(mi));
 
-        Windows.AppendMenu(Menu, MF_POPUP, PopUp, Pchar(sl[i]));
+        Windows.AppendMenu(Menu, MF_POPUP, PopUp, PChar(sl[i]));
       end
       else
       begin
@@ -385,9 +398,9 @@ var
   hBmp: HBITMAP;
   Menu: HMENU;
   MenuName: string;
-  m: HMenu;
-  mif : TMenuItemInfo;
-  mi : PMenuItem;
+  m: HMENU;
+  mif: TMenuItemInfo;
+  mi: PMenuItem;
 begin
   Menu := GethMenu(AName, MenuName);
 
@@ -395,8 +408,8 @@ begin
 
   if MenuName <> '-' then
   begin
-    Windows.AppendMenu(Menu, MF_STRING, FMenuID, Pchar(MenuName));
-    hBmp := LoadImage(HInstance, Pchar(Image), IMAGE_BITMAP, 0, 0,
+    Windows.AppendMenu(Menu, MF_STRING, FMenuID, PChar(MenuName));
+    hBmp := LoadImage(HInstance, PChar(Image), IMAGE_BITMAP, 0, 0,
       LR_LOADFROMFILE or LR_LOADTRANSPARENT);
     SetMenuItemBitmaps(Menu, FMenuID, MF_BYCOMMAND, hBmp, hBmp);
 
@@ -407,8 +420,8 @@ begin
     mi^.EnableTest := EnableTest;
     mi^.VisibleTest := VisibleTest;
 
-    ZeroMemory(@mif, Sizeof(mif));
-    mif.cbSize := SizeOf(Mif);
+    ZeroMemory(@mif, SizeOf(mif));
+    mif.cbSize := SizeOf(mif);
     mif.fMask := MIIM_DATA;
     mif.dwItemData := Integer(mi);
 
@@ -447,6 +460,7 @@ function TEceAppWindow.InvokeName(DispID: Integer; const IID: TGUID;
 var
   n: Integer;
 begin
+{$ifndef fpc}
   case DispID of
 {$REGION 'Title'}
     PROP_TITLE:
@@ -567,6 +581,7 @@ begin
 {$ENDREGION}
   end;
   Result := S_OK;
+{$endif}
 end;
 
 function TEceAppWindow.LoadPlugin(AFileName: string): boolean;
@@ -576,7 +591,7 @@ var
   LoadProc: PGetPlugin;
   Plugin: IEcePlugin;
 begin
-  hPlugin := LoadLibrary(Pchar(AFileName));
+  hPlugin := LoadLibrary(PChar(AFileName));
   if hPlugin = 0 then
     raise Exception.Create('Не удалось загрузить модуль ' + AFileName);
 
@@ -643,6 +658,34 @@ begin
   Result := FModuleProp.Values[AProp]
 end;
 {$ENDIF}
+{$REGION 'APP'}
+{$IFDEF forth}
+
+procedure efGetAppTitle(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  AMachine.PushString(GlApp.Title);
+end;
+
+procedure efSetAppTitle(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  GlApp.Title := AMachine.PopString;
+end;
+
+procedure efAppClose(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  SendMessage(GlApp.Handle, WM_SYSCOMMAND, SC_CLOSE, 0)
+end;
+
+procedure efAppQuit(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  PostQuitMessage(0);
+end;
+{$ENDIF}
+{$ENDREGION}
 {$REGION 'Doc'}
 {$IFDEF forth}
 
@@ -861,6 +904,11 @@ procedure TEceAppWindow.Register(AMachine: IVForthMachine);
   end;
 
 begin
+  // APP
+  AddAthom('GetAppTitle', efGetAppTitle, false);
+  AddAthom('SetAppTitle', efSetAppTitle, false);
+  AddAthom('AppClose', efAppClose, false);
+  AddAthom('AppQuit', efAppQuit, false);
   // DOC
   AddAthom('GetDocsCount', efGetDocsCount, false);
   AddAthom('GetDocFileName', efGetDocFileName, true);
@@ -909,7 +957,7 @@ begin
     Caption := Title + ' - ' + Caption;
     FPages.pages[ActiveDocument].Title := Title;
   end;
-  SetWindowText(Handle, Pchar(Caption))
+  SetWindowText(Handle, PChar(Caption))
 end;
 
 function TEceAppWindow.GetActiveDocumentWindow: TEceDocumentWindow;
@@ -919,5 +967,11 @@ begin
   else
     Result := Documents[ActiveDocument];
 end;
+
+initialization
+
+InitCommonControls;
+
+finalization
 
 end.

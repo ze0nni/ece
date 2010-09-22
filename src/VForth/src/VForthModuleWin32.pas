@@ -1,5 +1,5 @@
 unit VForthModuleWin32;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 uses

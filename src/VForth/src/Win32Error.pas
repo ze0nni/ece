@@ -1,5 +1,5 @@
 unit Win32Error;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 uses

@@ -1,5 +1,5 @@
 unit eceConsoleWindow;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 {$I EceLanguage.inc}
@@ -28,6 +28,7 @@ uses
   VForthModule,
   VForthModuleDateTime,
   VForthVariantArray,
+  VForthModuleDialogs,
   VForthModuleWin32;
 {$ELSE}
 MsAsKernel;
@@ -162,6 +163,9 @@ begin
   FApplication := AApplication;
 {$IFDEF forth}
   FVForthMachine := CreateVForthMachine;
+  {DONE -oOnni -cGeneral : –ешение проблемы выелета при выходе их приложени€}
+  FVForthMachine._AddRef;
+
   FVForthMachine.SetIo(Self);
   FVForthMachine.LoadModule(TVForthModuleSystem.Create);
   FVForthMachine.LoadModule(TVForthModuleIo.Create);
@@ -170,6 +174,7 @@ begin
   FVForthMachine.LoadModule(TVForthModuleDateTIme.Create);
   FVForthMachine.LoadModule(TVForthModuleWin32.Create);
   FVForthMachine.LoadModule(AApplication.GetModule);
+  FVForthMachine.LoadModule(TVForthModuleDialogs.Create);
 {$ELSE}
   FIfopKernel := TKernel.Create;
 {$ENDIF}

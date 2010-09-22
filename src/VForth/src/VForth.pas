@@ -1,5 +1,5 @@
 unit VForth;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 const
@@ -17,7 +17,7 @@ type
   TForthStack = (fsUser, fsSystem, fsException);
 
   IVForthMachine = interface
-    [IID_VForthMachine]
+    {$ifndef fpc}[IID_VForthMachine]{$endif}
     // private
     function GetAthom(const AAthom: String): IVForthAthom; stdcall;
     function GetDataStack(const index: Integer): IVForthVariant; stdcall;
@@ -78,13 +78,13 @@ type
   end;
 
   TVariantType = (vtNull, vtInteger, vtFloat, vtNatural, vtComplex, vtString,
-    vtArray, vtObject);
+    vtArray, vtObject, vtOle);
 
   TWin32Type = (wtNone, wtBool, wtByte, wtWord, wtInt, wtCharA, wtCharW,
     wtPCharA, wtPCharW, wtPointer);
 
   IVForthVariant = interface
-    [IID_VForthVariant]
+    {$ifndef fpc}[IID_VForthVariant]{$endif}
     // private
     function GetVariantType: TVariantType; stdcall;
     function GetName: string; stdcall;
@@ -122,7 +122,7 @@ type
   end;
 
   IVForthAthom = interface
-    [IID_VForthAthom]
+    {$ifndef fpc}[IID_VForthAthom]{$endif}
     // private
     function GetName: String; stdcall;
     function GetModule: IVForthModule; stdcall;
@@ -133,8 +133,7 @@ type
   end;
 
   IVForthModule = interface
-    [IID_VForthModule]
-
+    {$ifndef fpc}[IID_VForthModule]{$endif}
     procedure SetProp(AProp, AValue: string); stdcall;
     function GetProp(AProp: string): string; stdcall;
     procedure Register(AMachine: IVForthMachine); stdcall;

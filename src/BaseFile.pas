@@ -1,5 +1,5 @@
 unit BaseFile;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 //!!! ¬ качесте разделител€ дробной частичисла используетс€ “ќ„ ј
@@ -35,17 +35,17 @@ const
 {$else}
 resourcestring
 {$endif}
-  Strќшибка¬‘айлеS÷елое«начениеЌеЌайдено = 'ќшибка в файле "%s". ÷елое значение "%s" не найдено.';
-  Strќшибка¬‘айлеSЌеявл€етс€÷елым„ислом = 'ќшибка в файле "%s" строке "%d". ' +
+  StrErrIntValueNotFound = 'ќшибка в файле "%s". ÷елое значение "%s" не найдено.';
+  StrErrValueNotInt = 'ќшибка в файле "%s" строке "%d". ' +
     '«начение "%s" не €вл€етс€ целым числом.';
-  Strќшибка¬‘айлеS¬ещественное«начениеЌеЌайдено =
+  StrErrFloatValueNotFound =
     'ќшибка в файле "%s". ¬ещественное значение "%s" не найдено.';
-  Strќшибка¬‘айлеSЌеявл€етс€¬ещественным„ислом =
+  StrErrValueNotFloat =
     'ќшибка в файле "%s" строке "%d". ' +
     '«начение "%s" не €вл€етс€ вещественным числом.';
-  Strќшибка¬‘айлеS—троковое«начениеЌеЌайдено =
+  StrErrStrValueNotFound =
     'ќшибка в файле "%s". —троковое значение "%s" не найдено.';
-  Strќшибка‘айлSЌеЌайден = '‘айл "%s" не найден.';
+  StrFileNoFound = '‘айл "%s" не найден.';
   { TErr }
 
 { TBaseFile }
@@ -70,7 +70,7 @@ begin
   index := FBaseFile.IndexOfName(AKey);
   if index = -1 then
     // «начение не найдено
-    raise Exception.Create(Format(Strќшибка¬‘айлеS¬ещественное«начениеЌеЌайдено,
+    raise Exception.Create(Format(StrErrFloatValueNotFound,
         [FileName, AKey]));
   if TryStrToFloat(StringReplace(FBaseFile.ValueFromIndex[index], '.', DecimalSeparator, []), n) then
   begin
@@ -80,7 +80,7 @@ begin
   else
   begin
     // «начение не €вл€етс€ числом
-    raise Exception.Create(Format(Strќшибка¬‘айлеSЌеявл€етс€¬ещественным„ислом,
+    raise Exception.Create(Format(StrErrValueNotFloat,
         [FileName, Index + 1, FBaseFile.ValueFromIndex[index]]));
   end;
 end;
@@ -102,7 +102,7 @@ begin
   else
   begin
     // «начение не €вл€етс€ числом
-    raise Exception.Create(Format(Strќшибка¬‘айлеSЌеявл€етс€÷елым„ислом,
+    raise Exception.Create(Format(StrErrValueNotInt,
         [FileName, Index + 1, FBaseFile.ValueFromIndex[index]]));
   end;
 end;
@@ -115,7 +115,7 @@ begin
   index := FBaseFile.IndexOfName(AKey);
   if index = -1 then
     // «начение не найдено
-    raise Exception.Create(Format(Strќшибка¬‘айлеS÷елое«начениеЌеЌайдено,
+    raise Exception.Create(Format(StrErrIntValueNotFound,
         [FileName, AKey]));
   if TryStrToInt(FBaseFile.ValueFromIndex[index], n) then
   begin
@@ -125,7 +125,7 @@ begin
   else
   begin
     // «начение не €вл€етс€ числом
-    raise Exception.Create(Format(Strќшибка¬‘айлеSЌеявл€етс€÷елым„ислом,
+    raise Exception.Create(Format(StrErrValueNotInt,
         [FileName, Index + 1, FBaseFile.ValueFromIndex[index]]));
   end;
 end;
@@ -147,7 +147,7 @@ begin
   else
   begin
     // «начение не €вл€етс€ числом
-    raise Exception.Create(Format(Strќшибка¬‘айлеSЌеявл€етс€÷елым„ислом,
+    raise Exception.Create(Format(StrErrValueNotInt,
         [FileName, Index + 1, FBaseFile.ValueFromIndex[index]]));
   end;
 end;
@@ -155,7 +155,7 @@ end;
 procedure TBaseFile.LoadFromFile(AFileName: string);
 begin
   if not FileExists(AFileName) then
-    raise Exception.Create(Format(Strќшибка‘айлSЌеЌайден, [AFileName]));
+    raise Exception.Create(Format(StrErrFloatValueNotFound, [AFileName]));
   FBaseFile.LoadFromFile(AFileName);
   FBaseFileName := AFileName;
 end;
@@ -167,7 +167,7 @@ begin
   index := FBaseFile.IndexOfName(AKey);
   if index = -1 then
     // «начение не найдено
-    raise Exception.Create(Format(Strќшибка¬‘айлеS—троковое«начениеЌеЌайдено,
+    raise Exception.Create(Format(StrErrStrValueNotFound,
         [FileName, AKey]));
   Result := FBaseFile[index];
 end;

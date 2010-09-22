@@ -1,5 +1,6 @@
 program VForthCmd;
 {$APPTYPE CONSOLE}
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 {$R *.dres}
 
 uses
@@ -22,6 +23,7 @@ uses
   VForthModuleDateTime in 'VForthModuleDateTime.pas',
   VForthVariantArray in 'VForthVariantArray.pas',
   VForthModuleWin32 in 'VForthModuleWin32.pas';
+// VForthModuleOle in 'VForthModuleOle.pas';
 
 type
   TIO = class(TInterfacedObject, IVForthIO)
@@ -62,7 +64,11 @@ begin
 end;
 
 begin
+{$IFNDEF fpc}
+{$IFDEF debug}
   ReportMemoryLeaksOnShutdown := true;
+{$ENDIF}
+{$ENDIF}
   SetConsoleCP(1251);
   SetConsoleOutputCP(1251);
   try
@@ -73,7 +79,8 @@ begin
     VForth.LoadModule(TVForthModuleIo.Create);
     VForth.LoadModule(TVForthModuleMath.Create);
     VForth.LoadModule(TVForthModuleLogic.Create);
-    VForth.LoadModule(TVForthModuleDateTIme.Create);
+    // VForth.LoadModule(TVForthModuleOle.Create);
+    VForth.LoadModule(TVForthModuleDateTime.Create);
     VForth.LoadModule(TVForthModuleWin32.Create);
     //
     VForth.AddCode('help');
@@ -95,4 +102,5 @@ begin
       Readln;
     end;
   end;
+
 end.

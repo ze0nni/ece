@@ -1,5 +1,5 @@
 unit eceFindDialog;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 {$IFNDEF FPC}

@@ -19,7 +19,9 @@ uses
   Messages,
   Classes,
   SysUtils,
+  {$ifndef fpc}
   ClipBrd,
+  {$endif}
   iece,
   zeWndControls,
   DocumentWindow,
@@ -141,7 +143,7 @@ type
     message WM_COPY;
     procedure wmPaste(var msg: TWMPaste);
     message WM_PASTE;
-    procedure wmClear(var msg: TWMClear);
+    procedure wmClear(var msg: {$ifdef fpc}TMessage{$else}TWMClear{$endif});
     message WM_CLEAR;
     procedure wmUndo(var msg: TWMUndo);
     message WM_UNDO;
@@ -731,7 +733,7 @@ begin
   end;
 end;
 
-procedure TEceEditorWindow.wmClear(var msg: TWMClear);
+procedure TEceEditorWindow.wmClear(var msg: {$ifdef fpc}TMessage{$else}TWMClear{$endif});
 begin
 
 end;
@@ -752,6 +754,9 @@ var
   l: TStringList;
   i: integer;
 begin
+  {$ifdef fpc}
+
+  {$else}
   try
     BeginUpdate;
     l := TStringList.Create;
@@ -774,6 +779,7 @@ begin
     l.Free;
     EndUpdate;
   end;
+  {$endif}
 end;
 
 procedure TEceEditorWindow.wmUndo(var msg: TWMUndo);

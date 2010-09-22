@@ -1,5 +1,5 @@
 unit VForthModuleSystem;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 uses
@@ -379,7 +379,11 @@ var
   str: string;
   wt: TWin32Type;
 begin
+  {$ifdef fpc}
+  str := PAthomStr;
+  {$else}
   str := LowerCase(PAthomStr);
+  {$endif}
   if str = 'w32bool' then
     wt := wtBool
   else if str = 'w32byte' then

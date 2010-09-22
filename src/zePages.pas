@@ -213,24 +213,24 @@ begin
 
         getclientrect(handle, rt);
         rt.Left := rt.Right - rt.Bottom;
-        //
-        {$IFDEF USETHEMES}
-        if IsThemeActive then
-        begin
-          TabTheme := tbPushButtonNormal;
-          TabThemeDetails := ThemeServices.GetElementDetails(TabTheme);
-          ThemeServices.DrawElement(ps.hdc, TabThemeDetails, rt);
-          OffsetRect(rt, -rt.Bottom, 0);
-          ThemeServices.DrawElement(ps.hdc, TabThemeDetails, rt);
-        end
-          else
-        {$ENDIF}
-        begin
-          //fillrect(ps.hdc, rt, getsyscolorbrush(COLOR_BTNFACE));
-          DrawEdge(ps.hdc, rt, BDR_RAISED, BF_RECT or BF_MIDDLE);
-          OffsetRect(rt, -rt.Bottom, 0);
-          DrawEdge(ps.hdc, rt, BDR_RAISED, BF_RECT or BF_MIDDLE);
-        end;
+        //Кнопки
+//        {$IFDEF USETHEMES}
+//        if IsThemeActive then
+//        begin
+//          TabTheme := tbPushButtonNormal;
+//          TabThemeDetails := ThemeServices.GetElementDetails(TabTheme);
+//          ThemeServices.DrawElement(ps.hdc, TabThemeDetails, rt);
+//          OffsetRect(rt, -rt.Bottom, 0);
+//          ThemeServices.DrawElement(ps.hdc, TabThemeDetails, rt);
+//        end
+//          else
+//        {$ENDIF}
+//        begin
+//          //fillrect(ps.hdc, rt, getsyscolorbrush(COLOR_BTNFACE));
+//          DrawEdge(ps.hdc, rt, BDR_RAISED, BF_RECT or BF_MIDDLE);
+//          OffsetRect(rt, -rt.Bottom, 0);
+//          DrawEdge(ps.hdc, rt, BDR_RAISED, BF_RECT or BF_MIDDLE);
+//        end;
     EndPaint(handle, ps);
 end;
 

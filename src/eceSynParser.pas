@@ -1,5 +1,5 @@
 unit eceSynParser;
-
+{$IFDEF fpc}{$MODE delphi}{$ENDIF}
 interface
 
 type
@@ -11,14 +11,14 @@ type
   //
   TEceSynParser = class
   private
-    class function isRegionBegin(c: PChar; var RegID: Integer): boolean; static;
+    function isRegionBegin(c: PChar; var RegID: Integer): boolean;
 
   public
     // будут функции для проверки на
 
-    class function isSpace(c: PChar): boolean; inline;
-    class function isSymbol(c: PChar): boolean; inline;
-    class function isKeyword(c: PChar; var Len: Integer): boolean;
+    function isSpace(c: PChar): boolean; inline;
+    function isSymbol(c: PChar): boolean; inline;
+    function isKeyword(c: PChar; var Len: Integer): boolean;
     // Процедуре передается строка, ее состояние и Объект и процедура возврата
     // процедура разбивает строку и передает по кускам стили
     function ParseLine(const ALine: string; var State: TEceSynLineState;
@@ -40,18 +40,18 @@ implementation
 
 { TEceSynParser }
 
-class function TEceSynParser.isSpace(c: PChar): boolean;
+function TEceSynParser.isSpace(c: PChar): boolean;
 begin
   Result := c^ in [#9, #32, #0];
 end;
 
-class function TEceSynParser.isSymbol(c: PChar): boolean;
+function TEceSynParser.isSymbol(c: PChar): boolean;
 begin
   Result := c^ in ['.', ',', ':', ';', '(', ')', '[', ']', '+', '-', '*', '/',
     '\', '=', '@', '$', '&', '^', '{', '}', '<', '>'];
 end;
 
-class function TEceSynParser.isKeyword(c: PChar; var Len: Integer): boolean;
+function TEceSynParser.isKeyword(c: PChar; var Len: Integer): boolean;
 begin
   if (c[0] = 'a') and (c[1] = 's') and (isSpace(@c[2]) or isSymbol(@c[2])) then
   begin
@@ -97,7 +97,7 @@ begin
   Result := false;
 end;
 
-class function TEceSynParser.isRegionBegin(c: PChar; var RegID: Integer)
+function TEceSynParser.isRegionBegin(c: PChar; var RegID: Integer)
   : boolean;
 begin
   Result := c^ in ['"'];
