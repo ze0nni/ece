@@ -24,29 +24,29 @@ TBSkin "fileexit.bmp" + 1 1 "AppClose" MenuFile "Exit" + AddEceMenuItem
 drop ( MenuFile )
 
 "Edit/" var MenuEdit
-TBSkin "editundo.bmp" + 1 1 "emFileNew" MenuEdit "Undo" +  AddEceMenuItem
-TBSkin "editredo.bmp" + 1 1 "emFileOpen" MenuEdit "Redo" + AddEceMenuItem
+TBSkin "editundo.bmp" + 1 1 "" MenuEdit "Undo" +  AddEceMenuItem
+TBSkin "editredo.bmp" + 1 1 "" MenuEdit "Redo" + AddEceMenuItem
 MenuEdit MenuSaparator
-TBSkin "editcut.bmp" + 1 1 "emFileSave" MenuEdit "Cut" + AddEceMenuItem
-TBSkin "editcopy.bmp" + 1 1 "emFileSaveAs" MenuEdit "Copy" + AddEceMenuItem
-TBSkin "editpaste.bmp" + 1 1 "emFileClose" MenuEdit "Paste" + AddEceMenuItem
-TBSkin "editdelete.bmp" + 1 1 "emFileExit" MenuEdit "Delete" + AddEceMenuItem
+TBSkin "editcut.bmp" + 1 1 "" MenuEdit "Cut" + AddEceMenuItem
+TBSkin "editcopy.bmp" + 1 1 "" MenuEdit "Copy" + AddEceMenuItem
+TBSkin "editpaste.bmp" + 1 1 "" MenuEdit "Paste" + AddEceMenuItem
+TBSkin "editdelete.bmp" + 1 1 "" MenuEdit "Delete" + AddEceMenuItem
 MenuEdit MenuSaparator
-TBSkin "editselectall.bmp" + 1 1 "emFileExit" MenuEdit "Select all" + AddEceMenuItem
+TBSkin "editselectall.bmp" + 1 1 "" MenuEdit "Select all" + AddEceMenuItem
 drop ( MenuEdit )
 
 "View/" var MenuView
     MenuView "Codepage/" + var MenuCodepage
-    TBSkin "viewcodepageutf8.bmp" + 1 1 "emFileExit" MenuCodepage "UTF-8" + AddEceMenuItem
-    TBSkin "viewcodepagecp1251.bmp" + 1 1 "emFileExit" MenuCodepage "CP1251" + AddEceMenuItem
-    TBSkin "viewcodepagekoi8-r.bmp" + 1 1 "emFileExit" MenuCodepage "KOI8-R" + AddEceMenuItem
-    TBSkin "viewcodepagecp866.bmp" + 1 1 "emFileExit" MenuCodepage "CP866" + AddEceMenuItem
+    TBSkin "viewcodepageutf8.bmp" + 1 1 "" MenuCodepage "UTF-8" + AddEceMenuItem
+    TBSkin "viewcodepagecp1251.bmp" + 1 1 "" MenuCodepage "CP1251" + AddEceMenuItem
+    TBSkin "viewcodepagekoi8-r.bmp" + 1 1 "" MenuCodepage "KOI8-R" + AddEceMenuItem
+    TBSkin "viewcodepagecp866.bmp" + 1 1 "" MenuCodepage "CP866" + AddEceMenuItem
     drop ( MenuCodepage )
 drop ( MenuView )
 
 "Tools/" var MenuTools
-TBSkin "viewcodepageutf8.bmp" + 1 1 "emFileExit" MenuTools "Make\tF9" + AddEceMenuItem
-TBSkin "viewcodepageutf8.bmp" + 1 1 "emFileExit" MenuTools "Make config..." + AddEceMenuItem
+TBSkin "viewcodepageutf8.bmp" + 1 1 "" MenuTools "Make\tF9" + AddEceMenuItem
+TBSkin "viewcodepageutf8.bmp" + 1 1 "" MenuTools "Make config..." + AddEceMenuItem
 drop ( MenuTools )
 
 "Help/" var MenuHelp
