@@ -1,9 +1,12 @@
 unit VForthModuleSystem;
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
+
 interface
 
 uses
   SysUtils,
+  Classes,
+  Windows,
   VForthModule,
   VForth;
 
@@ -29,8 +32,8 @@ uses
   VForthVariantArray;
 
 // Переключение между стеками
-//Пользователь имее право преключаться только между первыми 7-ю
-//с 0-го пл 7-й
+// Пользователь имее право преключаться только между первыми 7-ю
+// с 0-го пл 7-й
 procedure VfStack(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
@@ -108,14 +111,14 @@ begin
   AMachine.Push(v.Convert(v.VariantType));
 end;
 
-//Удаляет из стека второе сверху число, сдвигая вершину на его место
+// Удаляет из стека второе сверху число, сдвигая вершину на его место
 procedure VfNip(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
   AMachine.PopEx(1)
 end;
 
-//Вращает N верхних чисел стека. 1 ROLL аналогично SWAP
+// Вращает N верхних чисел стека. 1 ROLL аналогично SWAP
 procedure VfRoll(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
@@ -130,7 +133,6 @@ begin
   v := AMachine.DataStack[AMachine.PopInt];
   AMachine.Push(v);
 end;
-
 
 // Выводим стек на экран
 procedure VfViewStack(AMachine: IVForthMachine; AAthom: IVForthAthom;
@@ -214,6 +216,13 @@ begin
     AMachine.StdOut('Input "help <keywords line>" for get help.'#13#10);
     AMachine.StdOut('Input ".d" to view dictionary');
   end;
+end;
+
+//
+procedure VfEcecuteStr(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  AMachine.AddCode(AMachine.PopString);
 end;
 
 // Назначаем переменной в верштне стека имя
@@ -317,28 +326,29 @@ end;
 procedure VfRecord(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  //Кладет в стек не адрес возврата, а текущий размерстека
+  // Кладет в стек не адрес возврата, а текущий размерстека
   AMachine.PushAddr(AMachine.DataStackSize);
 end;
 
 procedure VfEnd(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 var
-  NewSize : Integer;
-  A : TArrayVariant;
+  NewSize: Integer;
+  A: TArrayVariant;
   i: Integer;
 begin
-  //Создает новую переменную перемещаем в нее весь добавленный стек
+  // Создает новую переменную перемещаем в нее весь добавленный стек
   NewSize := AMachine.DataStackSize - AMachine.PopAddr;
   if NewSize <= 0 then
-    raise EVForthModuleSystemError.Create('Can''t create record. Stack must grow.');
-  A :=TArrayVariant.Create;
-  a.Size := NewSize;
+    raise EVForthModuleSystemError.Create(
+      'Can''t create record. Stack must grow.');
+  A := TArrayVariant.Create;
+  A.Size := NewSize;
   for i := 0 to NewSize - 1 do
   begin
-    a.Items[i] := AMachine.Pop;
+    A.Items[i] := AMachine.Pop;
   end;
-  AMachine.Push(a);
+  AMachine.Push(A);
 end;
 
 // Приведение к типу
@@ -373,17 +383,180 @@ begin
   AMachine.Push(AMachine.Pop.Convert(vtString));
 end;
 
+procedure VfCChar(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  AMachine.PushString(Char(AMachine.PopInt));
+end;
+
+// Работа со строками
+procedure VfEscapeStr(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  OldLine, NewLine: WideString;
+  Len, NewLen: Integer;
+  CChar: PWideChar;
+begin
+  OldLine := AMachine.PopString;
+  Len := Length(OldLine);
+  SetLength(NewLine, Len);
+  NewLen := 1;
+  CChar := PWideChar(OldLine);
+  repeat
+    if CChar^ = '\' then
+    begin
+      inc(CChar);
+      case CChar^ of
+        'n':
+          begin
+            NewLine[NewLen] := #13;
+            NewLine[NewLen + 1] := #10;
+            inc(NewLen);
+          end;
+        't':
+          NewLine[NewLen] := #9;
+        's':
+          NewLine[NewLen] := #23;
+        '\':
+          NewLine[NewLen] := '\';
+      end;
+      inc(NewLen);
+    end
+    else
+    begin
+      NewLine[NewLen] := CChar^;
+      inc(NewLen);
+    end;
+    inc(CChar);
+  until CChar^ = #0;
+  SetLength(NewLine, NewLen - 1);
+  AMachine.PushString(NewLine);
+end;
+
+procedure VfFormatStr(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  OldLine, NewLine: WideString;
+  Len, NewLen: Integer;
+  CChar: PWideChar;
+  procedure InsertFStr(str: WideString);
+  begin
+    // Увеличиваем размер буфера Если не хватает
+    if Length(NewLine) < Length(str) + NewLen then
+      SetLength(NewLine, Length(NewLine) + Len + Length(str) * SizeOf(WideChar)
+        );
+
+    CopyMemory(@NewLine[NewLen], PWideChar(str), Length(str) * SizeOf(WideChar)
+      );
+    inc(NewLen, Length(str) - 1);
+  end;
+
+begin
+  OldLine := AMachine.PopString;
+  Len := Length(OldLine);
+  // Делаем буфер в две длины
+  SetLength(NewLine, Len * 2);
+  ZeroMemory(PWideChar(NewLine), Len * 2);
+  NewLen := 1;
+  CChar := PWideChar(OldLine);
+  repeat
+    if CChar^ = '%' then
+    begin
+      inc(CChar);
+      case CChar^ of
+        'd':
+          InsertFStr(IntToStr(AMachine.PopInt));
+        's':
+          InsertFStr(AMachine.PopString);
+        // 'a': InsertFStr(AMachine.PopInt); //распечатка массива
+      end;
+      inc(NewLen);
+    end
+    else
+    begin
+      NewLine[NewLen] := CChar^;
+      inc(NewLen);
+    end;
+    inc(CChar);
+  until CChar^ = #0;
+  SetLength(NewLine, NewLen - 1);
+  AMachine.PushString(NewLine);
+end;
+
+procedure VfGetStrLen(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  v: IVForthVariant;
+begin
+  v := AMachine.DataStack[0];
+  AMachine.PushInt(Length(v.StringValue));
+end;
+
+procedure VfSetStrLen(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  v: IVForthVariant;
+  s: WideString;
+begin
+  v := AMachine.DataStack[1];
+  s := v.StringValue;
+  SetLength(s, AMachine.PopInt);
+  v.StringValue := s;
+end;
+
+procedure VfStrUpper(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  v: IVForthVariant;
+begin
+  v := AMachine.DataStack[0];
+  v.StringValue := UpperCase(v.StringValue)
+end;
+
+procedure VfStrLower(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  v: IVForthVariant;
+begin
+  v := AMachine.DataStack[0];
+  v.StringValue := LowerCase(v.StringValue)
+end;
+
+procedure VfStrGetChar(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  v: IVForthVariant;
+begin
+  v := AMachine.DataStack[1];
+  AMachine.PushString(v.StringValue[AMachine.PopInt]);
+end;
+
+procedure VfStrSetChar(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  v: IVForthVariant;
+  v0, v1: IVForthVariant;
+  s: WideString;
+begin
+  v := AMachine.DataStack[2];
+  v0 := AMachine.Pop;
+  v1 := AMachine.Pop;
+  s := v.StringValue;
+  s[v0.IntValue] := v1.StringValue[1];
+  v.StringValue := s;
+end;
+
 procedure VfWin32Type(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 var
   str: string;
   wt: TWin32Type;
 begin
-  {$ifdef fpc}
+{$IFDEF fpc}
   str := PAthomStr;
-  {$else}
+{$ELSE}
   str := LowerCase(PAthomStr);
-  {$endif}
+{$ENDIF}
   if str = 'w32bool' then
     wt := wtBool
   else if str = 'w32byte' then
@@ -405,12 +578,25 @@ begin
   AMachine.DataStack[0].Win32Type := wt;
 end;
 
+procedure VfImport(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  sl: TStringList;
+begin
+  sl := TStringList.Create;
+  try
+    sl.LoadFromFile(AMachine.PopString);
+    AMachine.AddCode(sl.Text);
+  finally
+    sl.Free;
+  end;
+end;
 { TVForthModuleSystem }
 
 procedure TVForthModuleSystem.Register(AMachine: IVForthMachine);
 begin
-  AMachine.AddAthom(CreateVForthSystemAthom('stack', Self, vfStack));
-  AMachine.AddAthom(CreateVForthSystemAthom('stack@', Self, vfGetStack));
+  AMachine.AddAthom(CreateVForthSystemAthom('stack', Self, VfStack));
+  AMachine.AddAthom(CreateVForthSystemAthom('stack@', Self, VfGetStack));
 
   AMachine.AddAthom(CreateVForthSystemAthom('swap', Self, VfSwap));
   AMachine.AddAthom(CreateVForthSystemAthom('dup', Self, VfDup));
@@ -430,6 +616,7 @@ begin
   AMachine.AddAthom(CreateVForthSystemAthom('.d', Self, VfViewDictionary));
   AMachine.AddAthom(CreateVForthSystemAthom('forget', Self, VfForget));
   AMachine.AddAthom(CreateVForthSystemAthom('help', Self, VfHelp));
+  AMachine.AddAthom(CreateVForthSystemAthom('execute', Self, VfEcecuteStr));
 
   AMachine.AddAthom(CreateVForthSystemAthom('var', Self, VfCreate));
   AMachine.AddAthom(CreateVForthSystemAthom('!', Self, VfSetVariable));
@@ -448,6 +635,17 @@ begin
   AMachine.AddAthom(CreateVForthSystemAthom('cnatural', Self, VfCNatural));
   AMachine.AddAthom(CreateVForthSystemAthom('ccomplex', Self, VfCComplex));
   AMachine.AddAthom(CreateVForthSystemAthom('cstr', Self, VfCStr));
+  AMachine.AddAthom(CreateVForthSystemAthom('cchar', Self, VfCChar));
+
+  AMachine.AddAthom(CreateVForthSystemAthom('escapestr', Self, VfEscapeStr));
+  AMachine.AddAthom(CreateVForthSystemAthom('formatstr', Self, VfFormatStr));
+
+  AMachine.AddAthom(CreateVForthSystemAthom('strlen@', Self, VfGetStrLen));
+  AMachine.AddAthom(CreateVForthSystemAthom('strlen!', Self, VfSetStrLen));
+  AMachine.AddAthom(CreateVForthSystemAthom('strupper', Self, VfStrUpper));
+  AMachine.AddAthom(CreateVForthSystemAthom('strlower', Self, VfStrLower));
+  AMachine.AddAthom(CreateVForthSystemAthom('c@', Self, VfStrGetChar));
+  AMachine.AddAthom(CreateVForthSystemAthom('c!', Self, VfStrSetChar));
 
   AMachine.AddAthom(CreateVForthSystemAthom('w32Bool', Self, VfWin32Type));
   AMachine.AddAthom(CreateVForthSystemAthom('w32Byte', Self, VfWin32Type));
@@ -458,6 +656,8 @@ begin
   AMachine.AddAthom(CreateVForthSystemAthom('w32PCharA', Self, VfWin32Type));
   AMachine.AddAthom(CreateVForthSystemAthom('w32PCharW', Self, VfWin32Type));
   AMachine.AddAthom(CreateVForthSystemAthom('w32Pointer', Self, VfWin32Type));
+
+  AMachine.AddAthom(CreateVForthSystemAthom('Import', Self, VfImport));
 end;
 
 end.

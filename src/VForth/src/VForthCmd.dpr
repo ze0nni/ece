@@ -83,7 +83,7 @@ begin
     VForth.LoadModule(TVForthModuleDateTime.Create);
     VForth.LoadModule(TVForthModuleWin32.Create);
     //
-    VForth.AddCode('help');
+    vforth.AddCode('Help');
     repeat
       try
         VForth.StdOut(#13#10);
@@ -102,5 +102,4 @@ begin
       Readln;
     end;
   end;
-
 end.

@@ -11,9 +11,9 @@ TBSkin "fileopen.bmp" + 1 1 "FileOpenDlg" MenuFile "Open..." +  AddEceMenuItem
 MenuFile MenuSaparator
 :emFileSave 
 	GetDocFileName "" = if 
-		"Нет имени файла для сохранения" raise
+		"Нет имени файла для сохранения" msgbox
 		else
-
+        "<тут должно быть сохранение>" msgbox
 		then
 ;
 TBSkin "filesave.bmp" + 1 1 "emFileSave" MenuFile "Save" + AddEceMenuItem
@@ -45,18 +45,32 @@ drop ( MenuEdit )
 drop ( MenuView )
 
 "Tools/" var MenuTools
-TBSkin "viewcodepageutf8.bmp" + 1 1 "" MenuTools "Make\tF9" + AddEceMenuItem
-TBSkin "viewcodepageutf8.bmp" + 1 1 "" MenuTools "Make config..." + AddEceMenuItem
+TBSkin "" + 1 1 "" MenuTools "Make\tF9" + AddEceMenuItem
+TBSkin "" + 1 1 "" MenuTools "Make config..." + AddEceMenuItem
+(
+"script\japman.f" import
+TBSkin "" + 1 1 "1 Japs" MenuTools "Japs/Less 1 Гласные A И У Э О" + AddEceMenuItem
+TBSkin "" + 1 1 "2 Japs" MenuTools "Japs/Less 2 К*" + AddEceMenuItem
+TBSkin "" + 1 1 "3 Japs" MenuTools "Japs/Less 3 С*" + AddEceMenuItem
+TBSkin "" + 1 1 "4 Japs" MenuTools "Japs/Less 4 Т*" + AddEceMenuItem
+TBSkin "" + 1 1 "5 Japs" MenuTools "Japs/Less 5 Н*" + AddEceMenuItem
+TBSkin "" + 1 1 "6 Japs" MenuTools "Japs/Less 6 Х*" + AddEceMenuItem
+TBSkin "" + 1 1 "7 Japs" MenuTools "Japs/Less 7 М*" + AddEceMenuItem
+
+TBSkin "" + 1 1 "8 Japs" MenuTools "Japs/Less 8 Х*" + AddEceMenuItem
+TBSkin "" + 1 1 "9 Japs" MenuTools "Japs/Less 9 Х*" + AddEceMenuItem
+)
+
 drop ( MenuTools )
 
 "Help/" var MenuHelp
-:helpabout "OkInformation" "About" "Easy Code Editor v1.0" MsgBoxEx drop;
+:helpabout "OkInformation" "About" "Easy Code Editor v1.0" MsgBoxEx  drop;
 TBSkin "helpabout.bmp" + 1 1 "helpabout" MenuHelp "About" + AddEceMenuItem
 drop ( MenuHelp )
 
 ( forget MenuSaparator )
 drop ( TSSkin )
-  ( ------Главное меню----- )  
+  ( /------Главное меню-----/ )  
 
  ( Удаляем "висячие" пробелы )
 :clr ( -- )

@@ -1,0 +1,58 @@
+<html>
+    <head>
+        <title>Clear</title>
+        <script language="VbScript">
+            ClrCount = 0
+            CFolderPath = ""
+            set RegExp = CreateObject("VbScript.RegExp")
+            sub ClearFolder(CFolder, clr)
+                dim lst
+                set lst = Document.GetElementById("lst")
+                dim f
+                for each f in CFolder.SubFolders
+                    if RegExp.Test(f.name) then 
+                        lst.InnerHtml = lst.InnerHtml & "[" & f.Name & "]<br>"
+                        if clr then f.Delete(true)
+                        ClrCount = ClrCount + 1
+                    else
+                        ClearFolder f, clr
+                        for each fl in f.Files
+                            if RegExp.Test(fl.name) then                                 
+                                lst.InnerHtml = lst.InnerHtml & "[" & fl.Name & "]<br>"
+                                if clr then fl.Delete(true)
+                                ClrCount = ClrCount + 1
+                            end if
+                        next
+                    end if
+        
+                next
+            end sub
+
+                sub Start(clr)
+                    Set fso= CreateObject("Scripting.FileSystemObject")
+                    set cf = fso.GetFolder(".\")
+                    ClrCount = 0
+                    CFolderPath = ""
+                
+                    RegExp.Pattern=Document.GetElementById("reg").InnerHtml
+                    Document.GetElementById("lst").InnerHtml=""
+                    ClearFolder cf, clr
+                    set fs = nothing
+                    if ClrCount = 0 then
+                        Document.GetElementById("lst").InnerHtml="Ничего не найдено."
+                    else
+                        Document.GetElementById("lst").InnerHtml = "Результат: " & ClrCount & "<br>" & Document.GetElementById("lst").InnerHtml
+                    end if
+                end sub
+        </script>
+        <style>input { margin:4px;margin-left:0; }</style>
+    </head>
+    <body>
+
+    </body onload="Start(false)">
+    <div style="padding:2px;border:solid 1px #aa8;background-color:#ff8;">Введите в поле интересующеее вас регулярное выражение, для фильтрации файлов и папок и нажмите "Найти". Если результат вас устраивает, нажмите "Очистить".<br>Внимание! Удаление происходит с жесткого диска.</div>
+    <input type=button onclick="Start(false)" value="Найти"> <input type=button onclick="Start(true)" value="Очистить"><br>
+    <textarea id="reg"style="width:100%;height:120px">(.+\.(dcu|ppu|o|identcache|local|tvsconfig|dir|dres|(\w){1,}~)$)|(/.svn$)|__temp$</textarea><br>
+    <div id="lst" style="padding:2px;border:solid 1px #f88;"></div>
+</html>
+

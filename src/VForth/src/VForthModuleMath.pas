@@ -344,7 +344,7 @@ begin
   SetProp(AngleMode, AngleModeDeg);
 
   AMachine.AddAthom(CreateVForthSystemAthom('+', self, VfAdd));
-  AMachine.AddAthom(CreateVForthSystemAthom('&', self, VfAddS));
+  AMachine.AddAthom(CreateVForthSystemAthom('s+', self, VfAddS));
   AMachine.AddAthom(CreateVForthSystemAthom('-', self, VfSub));
   AMachine.AddAthom(CreateVForthSystemAthom('*', self, VfMult));
   AMachine.AddAthom(CreateVForthSystemAthom('/', self, VfDivF));

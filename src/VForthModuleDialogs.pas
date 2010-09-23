@@ -1,5 +1,6 @@
 unit VForthModuleDialogs;
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
+
 interface
 
 uses
@@ -30,9 +31,8 @@ type
 
 implementation
 
-{$ifdef fpc}
-
-{$endif}
+{$IFDEF fpc}
+{$ENDIF}
 
 uses
   AppWindow,
@@ -135,7 +135,7 @@ var
   IDesktopFolder: IShellFolder;
   Eaten, flags: LongWord;
 begin
-  {$ifndef fpc}
+{$IFNDEF fpc}
   // myDir := Directory;
   Result := False;
   FillChar(BrowseInfo, SizeOf(BrowseInfo), 0);
@@ -179,7 +179,7 @@ begin
       ShellMalloc.Free(Buffer);
     end;
   end;
-  {$endif}
+{$ENDIF}
 end;
 
 function GetSpecialFolderPath(folder: Integer): string;
@@ -316,23 +316,25 @@ end;
 procedure VfdlgFileOpen(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 var
-  ofn: {$ifdef fpc}LPOPENFILENAME{$else}TOpenFilename{$endif};
+  ofn: {$IFDEF fpc} LPOPENFILENAME {$ELSE} TOpenFilename {$ENDIF};
   sFile: array [0 .. MAX_PATH] of char;
 begin
   ZeroMemory(@ofn, SizeOf(ofn));
   ZeroMemory(@sFile, SizeOf(sFile));
   ofn.lStructSize := SizeOf(ofn);
+
   ofn.hwndOwner := glApp.Handle;
   ofn.hInstance := hInstance;
   ofn.lpstrFilter := '*.*'#0'*.*'#0#0;
   ofn.lpstrTitle := 'Open';
   ofn.lpstrFile := sFile;
   ofn.nMaxFile := SizeOf(sFile);
-    ofn.flags := OFN_EXPLORER or OFN_CREATEPROMPT or OFN_FILEMUSTEXIST;
+  ofn.flags := OFN_EXPLORER or OFN_CREATEPROMPT or OFN_FILEMUSTEXIST;
+
   if GetOpenFileName(ofn) then
-  AMachine.PushString(sFile)
+    AMachine.PushString(sFile)
   else
-  AMachine.PushString('');
+    AMachine.PushString('');
 end;
 
 procedure TVForthModuleDialogs.Register(AMachine: IVForthMachine);

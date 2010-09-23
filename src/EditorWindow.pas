@@ -1008,6 +1008,7 @@ begin
   for i := 0 to Count - 1 do
     WriteLn(f, Strings[i]);
   CloseFile(f);
+  inherited;
 end;
 
 procedure TEceEditorWindow.LoadColorTheme(AFileName: string);
@@ -1077,6 +1078,7 @@ var
   Len, MaxLen: integer;
   index: integer;
 begin
+  inherited;
   try
     BeginUpdate;
     DocumentState := DsLoading;
