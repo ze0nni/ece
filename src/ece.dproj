@@ -56,6 +56,7 @@
 			<DCCReference Include="eceFindDialog.pas"/>
 			<DCCReference Include="eceSynParser.pas"/>
 			<DCCReference Include="eceConsoleWindow.pas"/>
+			<DCCReference Include="IeceObj.pas"/>
 			<None Include="syn\vb.xml"/>
 			<None Include="ModelSupport_ece\Ece\default.txvpck"/>
 			<None Include="ModelSupport_ece\default.txaPackage"/>

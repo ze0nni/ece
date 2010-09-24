@@ -27,7 +27,8 @@ uses
   ConExec in 'ConExec.pas',
   eceFindDialog in 'eceFindDialog.pas',
   eceSynParser in 'eceSynParser.pas',
-  eceConsoleWindow in 'eceConsoleWindow.pas';
+  eceConsoleWindow in 'eceConsoleWindow.pas',
+  IeceObj in 'IeceObj.pas';
 
 var
   App: TEceAppWindow;
@@ -43,25 +44,30 @@ var
     SendMessage(App.Handle, WM_SETICON, ICON_SMALL, LoadIcon
         (HInstance, 'appicon'));
 
+    //Грузим модули
+    //App.LoadPlugin('modules\startpage.dll');  //Стартовая страница
+    App.RegisterDocument(TEceEditorLoader.Create); //Окно редактора
+    App.LoadPlugin('modules\hexview.dll');  //Модуль просмотра HEX
+
     App.NewDocument('');
     App.ActiveDocument := 0;
 
-    App.Documents[0].SetFocus;
+    App.Documents[0]._SetFocus;
     // TEceEditorWindow(App.Documents[0]).Caret.Style := csClassic;
     // TEceEditorWindow(App.Documents[0]).LoadPlugin
     // ('EditorModules\autospace.dll');
-    with TEceEditorWindow(App.Documents[0]) do
-    begin
-      // SetFont('Lucida console', 17);
-      SetFont('Consolas', 22);
-      LoadColorTheme('color\default.txt');
-      Caret.Style := csClassic;
-    end;
+//    with TEceEditorWindow(App.Documents[0]) do
+//    begin
+//      // SetFont('Lucida console', 17);
+//      SetFont('Consolas', 22);
+//      LoadColorTheme('color\default.txt');
+//      Caret.Style := csClassic;
+//    end;
 
     if ParamCount <> 0 then
-      App.Documents[0].LoadFromFile(ParamStr(1));
+      App.Documents[0]._LoadFromFile(ParamStr(1));
+    App.ActiveDocument := 0;
 
-    // App.LoadPlugin('modules\autospace.dll');
 
     { TODO -oOnni -cПочти готово : Диалог поиска }
     // ShowFindDialog(app, TEceEditorWindow(App.Documents[0]));

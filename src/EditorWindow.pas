@@ -19,10 +19,11 @@ uses
   Messages,
   Classes,
   SysUtils,
-  {$ifndef fpc}
+{$IFNDEF fpc}
   ClipBrd,
-  {$endif}
+{$ENDIF}
   iece,
+  IeceObj,
   zeWndControls,
   DocumentWindow,
   BaseFile,
@@ -45,19 +46,26 @@ type
   TToken = class;
 
   TCaret = class;
-
-  /// <summary>
-  /// Класс - окна редкатора кода
-  /// </summary>
 {$DEFINE PanaramMode}
 {$UNDEF PanaramMode}
   TEceEditorState = (esEdit, {$IFDEF PanaramMode} esPanaram
 {$ELSE} esPanaramScroll {$ENDIF});
 
-  EEditorException = class(Exception);
+  EEditorException = class(Exception)
 
-    TEceEditorWindow = class(TEceDocumentWindow, IEceDocument, IEceEditor,
-      IDispatch)private FFileName: string;
+  end;
+
+  TEceEditorLoader = class(TInterfacedObject, IEceDocumentLoader)
+    function GetName: string; stdcall;
+    function GetTitle: string; stdcall;
+    function CreateDocument(AApp: IEceApplication; AFileName: string;
+      var IDoc: IEceDocument; var ErrResult: string): Boolean; stdcall;
+  end;
+
+  TEceEditorWindow = class(TEceDocumentWindow, IEceDocument, IEceEditor,
+    IDispatch)
+  private
+    FFileName: string;
     FFonts: array [0 .. 3] of HFont;
     FFontExtraSpace: array [0 .. 3] of integer;
     FLineModificationChecker: integer;
@@ -100,6 +108,10 @@ type
   protected
     procedure _BeginUpdate; override; safecall;
     procedure _EndUpdate; override; safecall;
+    procedure _SetFocus; override; stdcall;
+    procedure _KillFocus; override; stdcall;
+    procedure _LoadFromFile(Const filename: string); override; stdcall;
+
     function CreateCaret: TCaret; virtual;
     function CreateLine: TLine; virtual;
     function InvokeName(DispID: integer; const IID: TGUID; LocaleID: integer;
@@ -143,13 +155,13 @@ type
     message WM_COPY;
     procedure wmPaste(var msg: TWMPaste);
     message WM_PASTE;
-    procedure wmClear(var msg: {$ifdef fpc}TMessage{$else}TWMClear{$endif});
+    procedure wmClear(var msg: {$IFDEF fpc} TMessage {$ELSE} TWMClear {$ENDIF});
     message WM_CLEAR;
     procedure wmUndo(var msg: TWMUndo);
     message WM_UNDO;
 
-    procedure onVscroll(pos: integer; EndScroll: boolean); override;
-    procedure onHscroll(pos: integer; EndScroll: boolean); override;
+    procedure onVscroll(pos: integer; EndScroll: Boolean); override;
+    procedure onHscroll(pos: integer; EndScroll: Boolean); override;
 
     function GetDocumentFileName: string; override;
     function GetDocumentTitle: string; override;
@@ -251,7 +263,7 @@ type
   TLine = class(TEceInterfacedObject, IEceLine, IDispatch)
   private
     FText: String;
-    FVisible: boolean;
+    FVisible: Boolean;
     { указывает на строку, до которой, блок свернут }
     FRolllUpFor: TLine;
     { Список вернутых строк }
@@ -262,19 +274,19 @@ type
     FVisibleIndex: integer;
     FLineModificationChecker: integer;
     FEditor: TEceEditorWindow;
-    FisRollUp: boolean;
+    FisRollUp: Boolean;
     FLevel: integer;
     FSynState: TEceSynLineState;
     Function GetText: String;
     Procedure SetText(const value: String);
-    procedure SetVisible(const value: boolean);
+    procedure SetVisible(const value: Boolean);
     function GetLineIndex: integer;
     function GetLength: integer;
-    Function GetisRollBlock: boolean;
-    Procedure SetIsRollUp(const value: boolean);
+    Function GetisRollBlock: Boolean;
+    Procedure SetIsRollUp(const value: Boolean);
     function GetVisibleIndex: integer;
     procedure UpdateLinesIndex;
-    function GetisEndInLevel: boolean;
+    function GetisEndInLevel: Boolean;
     procedure RestorStyle(DC: HDC);
   protected
     { Список токенов }
@@ -297,14 +309,14 @@ type
     procedure Draw(DC: HDC; Cx, Cy, StartChar: integer);
     Procedure Invalidate;
     property Editor: TEceEditorWindow read FEditor;
-    property isRollBlock: boolean read GetisRollBlock;
-    property isRollUp: boolean read FisRollUp write SetIsRollUp;
+    property isRollBlock: Boolean read GetisRollBlock;
+    property isRollUp: Boolean read FisRollUp write SetIsRollUp;
     property Text: String Read GetText write SetText;
-    property Visible: boolean read FVisible Write SetVisible;
+    property Visible: Boolean read FVisible Write SetVisible;
     property LineIndex: integer read GetLineIndex;
     property VisibleIndex: integer read GetVisibleIndex;
     property Length: integer read GetLength;
-    property isEndInLevel: boolean read GetisEndInLevel;
+    property isEndInLevel: Boolean read GetisEndInLevel;
     property Level: integer read FLevel;
   end;
 
@@ -326,9 +338,9 @@ type
     FTokenType: TTokenClassType;
     FTextColor: integer;
     FFontStyle: integer;
-    FUnderline: boolean;
+    FUnderline: Boolean;
     FBkColor: integer;
-    FStrick: boolean;
+    FStrick: Boolean;
 
     // Списко токенов внутри которых может находиться этот
     FInclueIn: TList;
@@ -337,9 +349,9 @@ type
 
     procedure SetBkColor(const value: integer);
     procedure SetFontStyle(const value: integer);
-    procedure SetStrick(const value: boolean);
+    procedure SetStrick(const value: Boolean);
     procedure SetTextColor(const value: integer);
-    procedure SetUnderline(const value: boolean);
+    procedure SetUnderline(const value: Boolean);
   public
     constructor Create(AEditor: TEceEditorWindow);
     property Name: string read FName Write FName;
@@ -347,8 +359,8 @@ type
     property Editor: TEceEditorWindow read FEditor;
     // Визуальное оформление
     property FontStyle: integer read FFontStyle write SetFontStyle;
-    property Underline: boolean read FUnderline write SetUnderline;
-    property Strick: boolean read FStrick write SetStrick;
+    property Underline: Boolean read FUnderline write SetUnderline;
+    property Strick: Boolean read FStrick write SetStrick;
     property TextColor: integer read FTextColor write SetTextColor;
     property BkColor: integer read FBkColor write SetBkColor;
   end;
@@ -399,13 +411,13 @@ type
     FEditor: TEceEditorWindow;
     Fx, Fy: integer;
     FStyle: TCaretStyle;
-    FSelection: boolean;
+    FSelection: Boolean;
     FSelStartX: integer;
     FSelStartY: integer;
     procedure SetStyle(Const value: TCaretStyle);
     function GetLine: integer;
-    function GetSelectionMode: boolean;
-    function GetHaveSelection: boolean;
+    function GetSelectionMode: Boolean;
+    function GetHaveSelection: Boolean;
     function GetSelectionRange: TSelectionRange;
   protected
     Procedure SetX(Const value: integer); virtual;
@@ -428,8 +440,8 @@ type
     // Соответвуют реальным строкаи
     property SelStartX: integer read FSelStartX;
     property SelStartY: integer read FSelStartY;
-    property SelectionMode: boolean read GetSelectionMode;
-    property HaveSelection: boolean read GetHaveSelection;
+    property SelectionMode: Boolean read GetSelectionMode;
+    property HaveSelection: Boolean read GetHaveSelection;
     property Line: integer Read GetLine;
     property Style: TCaretStyle read FStyle Write SetStyle;
     property SelectionRange: TSelectionRange read GetSelectionRange;
@@ -459,7 +471,7 @@ const
   PROP_CARET_X = 0;
   PROP_CARET_Y = 1;
 
-function isKeyDown(key: integer): boolean;
+function isKeyDown(key: integer): Boolean;
 begin
   Result := (GetKeyState(key) and 128) = 128
 end;
@@ -619,6 +631,24 @@ begin
   Result := InsertLine(Index);
 end;
 
+procedure TEceEditorWindow._KillFocus;
+begin
+  inherited;
+  KillFocus;
+end;
+
+procedure TEceEditorWindow._LoadFromFile(const filename: string);
+begin
+  inherited;
+  LoadFromFile(filename);
+end;
+
+procedure TEceEditorWindow._SetFocus;
+begin
+  inherited;
+  SetFocus;
+end;
+
 procedure TEceEditorWindow.wmGetDlgCode(var msg: TWmGetDlgCode);
 begin
   msg.Result :=
@@ -733,7 +763,8 @@ begin
   end;
 end;
 
-procedure TEceEditorWindow.wmClear(var msg: {$ifdef fpc}TMessage{$else}TWMClear{$endif});
+procedure TEceEditorWindow.wmClear(var msg: {$IFDEF fpc} TMessage
+{$ELSE} TWMClear {$ENDIF});
 begin
 
 end;
@@ -754,9 +785,8 @@ var
   l: TStringList;
   i: integer;
 begin
-  {$ifdef fpc}
-
-  {$else}
+{$IFDEF fpc}
+{$ELSE}
   try
     BeginUpdate;
     l := TStringList.Create;
@@ -779,7 +809,7 @@ begin
     l.Free;
     EndUpdate;
   end;
-  {$endif}
+{$ENDIF}
 end;
 
 procedure TEceEditorWindow.wmUndo(var msg: TWMUndo);
@@ -1180,6 +1210,8 @@ begin
   RegisterName('FileName', PROP_FILENAME);
   RegisterName('SetFont', PROP_SETFONT);
   RegisterName('Caret', PROP_CARET);
+
+  LoadColorTheme('color\default.txt');
 end;
 
 function TEceEditorWindow.CreateCaret: TCaret;
@@ -1362,7 +1394,7 @@ end;
 
 function TEceEditorWindow.UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL;
   function Test(k: Char; c: BOOL = true; s: BOOL = false; a: BOOL = false)
-    : boolean;
+    : Boolean;
   begin
     Result := (ord(k) = key) and (c = ctrl) and (s = shift) and (a = alt);
   end;
@@ -1610,12 +1642,12 @@ begin
   end;
 end;
 
-procedure TEceEditorWindow.onHscroll(pos: integer; EndScroll: boolean);
+procedure TEceEditorWindow.onHscroll(pos: integer; EndScroll: Boolean);
 begin
   OffsetX := pos;
 end;
 
-procedure TEceEditorWindow.onVscroll(pos: integer; EndScroll: boolean);
+procedure TEceEditorWindow.onVscroll(pos: integer; EndScroll: Boolean);
 begin
   OffsetY := pos;
 end;
@@ -1912,7 +1944,7 @@ begin
   { todo: Известить об изменении }
 end;
 
-procedure TLine.SetVisible(const value: boolean);
+procedure TLine.SetVisible(const value: Boolean);
 begin
   FVisible := value;
   { todo: Известить об изменении }
@@ -1945,7 +1977,7 @@ begin
   Result := System.Length(FText);
 end;
 
-function TLine.GetisEndInLevel: boolean;
+function TLine.GetisEndInLevel: Boolean;
 var
   Index: integer;
 begin
@@ -1955,12 +1987,12 @@ begin
   Result := (FEditor.Lines[index + 1].Level < Level);
 end;
 
-Function TLine.GetisRollBlock: boolean;
+Function TLine.GetisRollBlock: Boolean;
 begin
   Result := FRolllUpFor <> nil;
 end;
 
-Procedure TLine.SetIsRollUp(const value: boolean);
+Procedure TLine.SetIsRollUp(const value: Boolean);
 var
   index: integer;
   i: integer;
@@ -2246,7 +2278,7 @@ begin
   ShowCaret(FEditor.Handle);
 end;
 
-function TCaret.GetHaveSelection: boolean;
+function TCaret.GetHaveSelection: Boolean;
 begin
   Result :=
   { TODO -oOnni -cBug : Возможны косяки для свеонутых блоков }
@@ -2262,7 +2294,7 @@ begin
   end;
 end;
 
-function TCaret.GetSelectionMode: boolean;
+function TCaret.GetSelectionMode: Boolean;
 begin
   Result := isKeyDown(VK_SHIFT) or isKeyDown(VK_LBUTTON);
 end;
@@ -2402,7 +2434,7 @@ begin
   FFontStyle := value;
 end;
 
-procedure TTokenClass.SetStrick(const value: boolean);
+procedure TTokenClass.SetStrick(const value: Boolean);
 begin
   FStrick := value;
 end;
@@ -2412,7 +2444,7 @@ begin
   FTextColor := value;
 end;
 
-procedure TTokenClass.SetUnderline(const value: boolean);
+procedure TTokenClass.SetUnderline(const value: Boolean);
 begin
   FUnderline := value;
 end;
@@ -2424,7 +2456,13 @@ var
   i: integer;
 begin
   for i := 0 to FTokens.Count - 1 do
-    FTokens.Objects[i].Free;
+    try
+      { TODO -oOnni -cGeneral : Разобраться в проблеме }
+      if Assigned(FTokens.Objects[i]) then
+        FTokens.Objects[i].Free;
+    except
+
+    end;
 end;
 
 constructor TTokenClassList.Create(AEditor: TEceEditorWindow);
@@ -2498,6 +2536,25 @@ end;
 procedure TToken.SetLength(const value: Cardinal);
 begin
   FLength := value;
+end;
+
+{ TEceEditorLoader }
+
+function TEceEditorLoader.CreateDocument(AApp: IEceApplication;
+  AFileName: string; var IDoc: IEceDocument; var ErrResult: string): Boolean;
+begin
+  IDoc := TEceEditorWindow.Create(AApp._GetHandle, AApp);
+  Result := true;
+end;
+
+function TEceEditorLoader.GetName: string;
+begin
+  Result := 'CodeEditor';
+end;
+
+function TEceEditorLoader.GetTitle: string;
+begin
+  Result := 'Редактор исходного кода.';
 end;
 
 end.

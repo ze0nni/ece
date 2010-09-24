@@ -88,6 +88,10 @@ begin
     newpage.title := ParamStr(1);
     insertpage(0, newpage);
 
+    newpage := tpage.create(self);
+    newpage.title := ParamStr(1);
+    insertpage(0, newpage);
+
 //    newpage := tpage.create(self);
 //    newpage.title := 'new *';
 //    insertpage(1, newpage);

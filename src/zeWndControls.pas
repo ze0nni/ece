@@ -20,7 +20,8 @@ uses
   Classes,
   SysUtils,
   // zeError,
-  Iece;
+  Iece,
+  IEceObj;
 
 type
   TScrollBar = class;
@@ -71,7 +72,7 @@ type
     property Width: Integer read GetWidth write SetWidth;
     property Height: Integer read GetHeight write SetHeight;
 
-    property Title : string read GetTitle write SetTitle;
+    property Title: string read GetTitle write SetTitle;
   end;
 
   TScrollBar = class
@@ -200,7 +201,7 @@ var
 begin
   Ln := GetWindowTextLength(Handle);
   SetLength(Result, Ln + 1);
-  GetWindowText(Handle, Pchar(Result), ln + 1);
+  GetWindowText(Handle, Pchar(Result), Ln + 1);
 end;
 
 function TzeWndControl.GetTop: Integer;
@@ -333,10 +334,13 @@ procedure TzeWndControl.wmDestroy(var msg: TWMDestroy);
 begin
   if not FIsDestroy then
   begin
+//    AllocConsole;
+//    writeln(ClassName);
     FIsDestroy := true;
     SetWindowLong(Handle, 0, 0);
     Free;
   end;
+  inherited;
 end;
 
 procedure TzeWndControl.SetFocus;
@@ -371,7 +375,7 @@ var
   rt: Trect;
 begin
   GetWindowRect(Handle, rt);
-  SetWindowPos(Handle, 0, rt.left, Value, 0, 0, SWP_NOSIZE or SWP_NOACTIVATE);
+  SetWindowPos(Handle, 0, rt.Left, Value, 0, 0, SWP_NOSIZE or SWP_NOACTIVATE);
 end;
 
 procedure TzeWndControl.SetWidth(const Value: Integer);

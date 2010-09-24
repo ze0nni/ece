@@ -26,8 +26,12 @@ type
   protected
     procedure _BeginUpdate; virtual; safecall;
     procedure _EndUpdate; virtual; safecall;
+    procedure _SetFocus; virtual; stdcall;
+    procedure _KillFocus; virtual; stdcall;
     function GetDocumentFileName: string; virtual;
     function GetDocumentTitle: string; virtual;
+    function GetFileName : string; virtual; stdcall;
+    procedure _LoadFromFile(Const filename : string);virtual; stdcall;
   public
     Constructor Create(Parent: Cardinal; AApplication: IEceApplication);
     Destructor Destroy; override;
@@ -95,6 +99,11 @@ begin
 
 end;
 
+function TEceDocumentWindow.GetFileName: string;
+begin
+  Result := '';
+end;
+
 procedure TEceDocumentWindow.SetDocumentState(const value: TEceDocumentState);
 begin
   EnterCriticalSection(FCsChangeState);
@@ -120,6 +129,21 @@ end;
 function TEceDocumentWindow._GetHandle: HWND;
 begin
   result := Handle;
+end;
+
+procedure TEceDocumentWindow._KillFocus;
+begin
+
+end;
+
+procedure TEceDocumentWindow._LoadFromFile(const filename: string);
+begin
+
+end;
+
+procedure TEceDocumentWindow._SetFocus;
+begin
+
 end;
 
 end.

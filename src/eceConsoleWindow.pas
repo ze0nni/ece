@@ -1,5 +1,6 @@
 unit eceConsoleWindow;
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
+
 interface
 
 {$I EceLanguage.inc}
@@ -163,7 +164,7 @@ begin
   FApplication := AApplication;
 {$IFDEF forth}
   FVForthMachine := CreateVForthMachine;
-  {DONE -oOnni -cGeneral : –ешение проблемы выелета при выходе их приложени€}
+  { DONE -oOnni -cGeneral : –ешение проблемы выелета при выходе их приложени€ }
   FVForthMachine._AddRef;
 
   FVForthMachine.SetIo(Self);
