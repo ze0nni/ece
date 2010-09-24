@@ -202,8 +202,9 @@ begin
     exit;
   GetClientRect(Handle, rt);
   GetClientRect(FToolBar, tbRect);
-  SetWindowPos(FToolBar, 0, 0, 0, tbRect.Bottom, rt.Right,
-    SWP_NOMOVE or SWP_NOACTIVATE);
+//  SetWindowPos(FToolBar, 0, 0, 0, tbRect.Bottom, rt.Right,
+//    SWP_NOMOVE or SWP_NOACTIVATE);
+  SendMessage(FToolBar, TB_AUTOSIZE, 0, 0);
 
   SetWindowPos(FPages.Handle, 0, 0, tbRect.Bottom, rt.Right, 24,
     SWP_NOACTIVATE);
@@ -284,10 +285,11 @@ begin
 
   // ToolBAr
   FToolBar := CreateWindowEx
-    (TBSTYLE_EX_DOUBLEBUFFER or TBSTYLE_EX_DRAWDDARROWS, TOOLBARCLASSNAME,
+    (TBSTYLE_EX_DOUBLEBUFFER,
+    TOOLBARCLASSNAME,
     'ToolBar',
-    WS_VISIBLE or WS_CHILD or TBSTYLE_WRAPABLE or TBSTYLE_TOOLTIPS
-      OR TBSTYLE_FLAT, 0, 0, 512, 24, Handle, 0, HInstance, nil);
+    WS_VISIBLE or WS_CHILD or TBSTYLE_TOOLTIPS OR TBSTYLE_FLAT,
+    0, 0, 0, 24, Handle, 0, HInstance, nil);
   FImgList := ImageList_Create(16, 16, ILC_COLOR24, 0, 0);
   SendMessage(FToolBar, TB_SETIMAGELIST, 0, FImgList);
 
@@ -516,8 +518,7 @@ begin
     SendMessage(FToolBar, TB_ADDBUTTONS, 1, Integer(@btn));
   end;
   m := GetMenu(Handle);
-  SetMenu(Handle, 0);
-  SetMenu(Handle, m)
+
 end;
 
 function TEceAppWindow.CloseAllDocuments: boolean;

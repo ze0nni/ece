@@ -277,7 +277,7 @@ begin
   begin
     if isActive then
     begin
-      TabTheme := ttTabItemSelected
+      TabTheme := ttTabItemSelected;
     end
       else
     begin
@@ -313,6 +313,7 @@ begin
     begin
       Flags := BDR_RAISED;
       Flags2 := BF_MIDDLE or BF_RECT and not BF_BOTTOM;
+      SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
     end
       else
     begin
@@ -320,8 +321,8 @@ begin
       Flags2 := BF_MIDDLE or BF_RECT and not BF_BOTTOM;
       inc(rt.Top, c_offset_top);
       dec(rt.Bottom);
+      SetTextColor(dc, GetSysColor(COLOR_GRAYTEXT));
     end;
-    SetTextColor(dc, GetSysColor(COLOR_BTNTEXT));
     DrawEdge(dc, rt, Flags, Flags2);
     TextRt := rt;
     dec(TextRt.Right, 18);

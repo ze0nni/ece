@@ -32,6 +32,7 @@ uses
 
 var
   App: TEceAppWindow;
+  m : HMENU;
   msg: tmsg;
 
   begin
@@ -71,6 +72,10 @@ var
 
     { TODO -oOnni -cПочти готово : Диалог поиска }
     // ShowFindDialog(app, TEceEditorWindow(App.Documents[0]));
+
+    m := GetMenu(App.Handle);
+    SetMenu(App.Handle, 0);
+    SetMenu(App.Handle, m);
 
     while GetMessage(msg, 0, 0, 0) do
     begin
