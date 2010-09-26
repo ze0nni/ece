@@ -45,9 +45,9 @@ drop ( MenuEdit )
 drop ( MenuView )
 
 "Tools/" var MenuTools
-TBSkin "" + 1 1 "" MenuTools "Make\tF9" + AddEceMenuItem
+TBSkin "execute.bmp" + 1 1 "" MenuTools "Make\tF9" + AddEceMenuItem
 TBSkin "" + 1 1 "" MenuTools "Make config..." + AddEceMenuItem
-
+(
 "script\japman.f" import
 TBSkin "" + 1 1 "1 Japs" MenuTools "Japs/Less 1 Гласные A И У Э О" + AddEceMenuItem
 TBSkin "" + 1 1 "2 Japs" MenuTools "Japs/Less 2 К*" + AddEceMenuItem
@@ -59,6 +59,7 @@ TBSkin "" + 1 1 "7 Japs" MenuTools "Japs/Less 7 М*" + AddEceMenuItem
 
 TBSkin "" + 1 1 "8 Japs" MenuTools "Japs/Less 8 Х*" + AddEceMenuItem
 TBSkin "" + 1 1 "9 Japs" MenuTools "Japs/Less 9 Х*" + AddEceMenuItem
+)
 drop ( MenuTools )
 
 "Help/" var MenuHelp
