@@ -1,7 +1,0 @@
-sub ShowMessage(byref Msg as string)
-	'Функция отображает окно сообщения
-	MsgBox(Msg);
-end sub
-
-dim TextMessage = "Hello world!"
-ShowMessage(TextMessage)
