@@ -34,6 +34,11 @@ const
   EDITOR_TIMER_SCROLL = 1;
   TIMER_ELAPSE = 20;
 
+const
+  AF_TEXT = 1;
+  AF_BG = 2;
+  AF_STYLE = 4;
+
 type
   TGutter = class;
 
@@ -60,6 +65,8 @@ type
     function GetTitle: string; stdcall;
     function CreateDocument(AApp: IEceApplication; AFileName: string;
       var IDoc: IEceDocument; var ErrResult: string): Boolean; stdcall;
+    function CheckDocument(AApp: IEceApplication; AFileName: string): Boolean;
+      stdcall;
   end;
 
   TEceEditorWindow = class(TEceDocumentWindow, IEceDocument, IEceEditor,
@@ -112,6 +119,9 @@ type
     procedure _KillFocus; override; stdcall;
     procedure _LoadFromFile(Const filename: string); override; stdcall;
 
+    function GetDocumentTitle: string; override;
+    function GetFileName: string; override;
+
     function CreateCaret: TCaret; virtual;
     function CreateLine: TLine; virtual;
     function InvokeName(DispID: integer; const IID: TGUID; LocaleID: integer;
@@ -163,8 +173,6 @@ type
     procedure onVscroll(pos: integer; EndScroll: Boolean); override;
     procedure onHscroll(pos: integer; EndScroll: Boolean); override;
 
-    function GetDocumentFileName: string; override;
-    function GetDocumentTitle: string; override;
   protected
 
     function _GetLinesCount: integer; safecall;
@@ -174,6 +182,8 @@ type
     function _AddLine: IEceLine; safecall;
     function _InsertLine(Index: integer): IEceLine; safecall;
     procedure _DeleteLine(Index: integer); safecall;
+    procedure _Invalidate(); safecall;
+    procedure _InvalidateLine(ALineIndex: integer); safecall;
   public
     Constructor Create(Parent: Cardinal; AApplication: IEceApplication);
     Destructor Destroy; override;
@@ -288,6 +298,7 @@ type
     procedure UpdateLinesIndex;
     function GetisEndInLevel: Boolean;
     procedure RestorStyle(DC: HDC);
+    function GetIsSelection: Boolean;
   protected
     { Список токенов }
     FTokens: TList;
@@ -295,6 +306,7 @@ type
     function _GetText: string; safecall;
     function _SetText(Text: string): integer; safecall;
     function _GetIndex: integer; safecall;
+    procedure _Insert(AValue: string; AChar: integer); safecall;
     procedure UpdateSyn; virtual;
   protected
     function InvokeName(DispID: integer; const IID: TGUID; LocaleID: integer;
@@ -318,6 +330,8 @@ type
     property Length: integer read GetLength;
     property isEndInLevel: Boolean read GetisEndInLevel;
     property Level: integer read FLevel;
+
+    property isSelection: Boolean read GetIsSelection;
   end;
 
   // Класс токена
@@ -363,6 +377,9 @@ type
     property Strick: Boolean read FStrick write SetStrick;
     property TextColor: integer read FTextColor write SetTextColor;
     property BkColor: integer read FBkColor write SetBkColor;
+    //
+    procedure ApplyStyle(DC: HDC);
+    procedure ApplyStyleEx(DC: HDC; UFlags: Word);
   end;
 
   // Список всех классов токенов документа
@@ -393,10 +410,10 @@ type
 
   public
     constructor Create(ATokenClass: TTokenClass);
+    destructor Destroy; override;
     property TokenClass: TTokenClass read FTokenClass;
     property FirstChar: Cardinal read FFirstChar write SetFirstChar;
     property Length: Cardinal read FLength write SetLength;
-    procedure ApplyStyle(DC: HDC);
   end;
 
   TCaretStyle = (csNormal, csClassic);
@@ -404,6 +421,7 @@ type
   TSelectionRange = record
     selStart: TPoint;
     selEnd: TPoint;
+    {$IFNDEF fpc}function InRange(Line: integer): Boolean;{$ENDIF}
   end;
 
   TCaret = class(TEceInterfacedObject, ICaret, IDispatch)
@@ -424,6 +442,7 @@ type
     Procedure SetY(Const value: integer); virtual;
     function _GetX: integer; safecall;
     function _GetY: integer; safecall;
+    function _GetLine: integer; safecall;
     function _SetX(value: integer): integer; safecall;
     function _SetY(value: integer): integer; safecall;
 
@@ -631,6 +650,17 @@ begin
   Result := InsertLine(Index);
 end;
 
+procedure TEceEditorWindow._Invalidate;
+begin
+  Invalidate;
+end;
+
+procedure TEceEditorWindow._InvalidateLine(ALineIndex: integer);
+begin
+  { TODO: Обновление строки }
+  Invalidate;
+end;
+
 procedure TEceEditorWindow._KillFocus;
 begin
   inherited;
@@ -657,6 +687,10 @@ begin
 end;
 
 procedure TEceEditorWindow.wmKeyDown(var msg: TWmKeyDown);
+var
+  Ln: string;
+  len: integer;
+  c: char;
 begin
   case msg.CharCode of
     VK_UP:
@@ -664,9 +698,45 @@ begin
     VK_DOWN:
       Caret.Y := Caret.Y + 1;
     VK_LEFT:
-      Caret.X := Caret.X - 1;
+{$REGION 'LEFT'}
+      begin
+        if isKeyDown(VK_CONTROL) then
+        begin
+          Ln := Strings[Caret.Line];
+          len := Length(Ln);
+          if len <> 0 then
+            repeat
+              Caret.X := Caret.X - 1;
+              c := Ln[Caret.X];
+            until (Caret.X <= 0) or (FSyntaxParser.isSymbol(@c)) or
+              (FSyntaxParser.isSpace(@c));
+          end
+        else
+        begin
+          Caret.X := Caret.X - 1;
+        end;
+      end;
+{$ENDREGION}
     VK_RIGHT:
-      Caret.X := Caret.X + 1;
+{$REGION 'RIGHT'}
+      begin
+        if isKeyDown(VK_CONTROL) then
+        begin
+          Ln := Strings[Caret.Line];
+          len := Length(Ln);
+          if len <> 0 then
+            repeat
+              Caret.X := Caret.X + 1;
+              c := Ln[Caret.X];
+            until (Caret.X >= len) or (FSyntaxParser.isSymbol(@c)) or
+              (FSyntaxParser.isSpace(@c));
+          end
+        else
+        begin
+          Caret.X := Caret.X + 1;
+        end;
+      end;
+{$ENDREGION}
     VK_HOME:
       begin
         if isKeyDown(VK_CONTROL) then
@@ -755,7 +825,7 @@ begin
       begin
         if isKeyDown(VK_CONTROL) then
           exit;
-        Lines[Caret.Line].Insert(Char(msg.CharCode), Caret.X + 1);
+        Lines[Caret.Line].Insert(char(msg.CharCode), Caret.X + 1);
         Caret.X := Caret.X + 1;
       end;
     end;
@@ -1104,11 +1174,14 @@ end;
 procedure TEceEditorWindow.LoadFromFile(AFileName: string);
 var
   f: TextFile;
-  ln: String;
-  Len, MaxLen: integer;
+  Ln: String;
+  len, MaxLen: integer;
   index: integer;
 begin
   inherited;
+  if not FileExists(AFileName) then
+    exit;
+
   try
     BeginUpdate;
     DocumentState := DsLoading;
@@ -1119,14 +1192,14 @@ begin
     MaxLen := 0;
     While not eof(f) do
     begin
-      ReadLn(f, ln);
-      ln := StringReplace(ln, #9, #32#32, [rfReplaceAll]);
-      index := AddString(ln);
+      ReadLn(f, Ln);
+      Ln := StringReplace(Ln, #9, #32#32, [rfReplaceAll]);
+      index := AddString(Ln);
       Lines[index].UpdateSyn;
 
-      Len := Length(ln);
-      if Len > MaxLen then
-        MaxLen := Len;
+      len := Length(Ln);
+      if len > MaxLen then
+        MaxLen := len;
     end;
     CloseFile(f);
 
@@ -1183,7 +1256,13 @@ Constructor TEceEditorWindow.Create(Parent: Cardinal;
 begin
   Inherited;
   // Устанавливаем шрифт
-  SetFont('Fixedsys', 8);
+  try
+    SetFont('Fixedsys', 8);
+    SetFont('Courier new', 16);
+    SetFont('Consolas', 20);
+  except
+
+  end;
   // Создаем строки
   FLines := TList.Create;
   FVisibleLines := TList.Create;
@@ -1211,7 +1290,7 @@ begin
   RegisterName('SetFont', PROP_SETFONT);
   RegisterName('Caret', PROP_CARET);
 
-  LoadColorTheme('color\default.txt');
+  LoadColorTheme(ExtractFilePath(ParamStr(0)) + 'color\default.txt');
 end;
 
 function TEceEditorWindow.CreateCaret: TCaret;
@@ -1343,11 +1422,6 @@ begin
   Result := FLines.Count;
 end;
 
-function TEceEditorWindow.GetDocumentFileName: string;
-begin
-  Result := FFileName;
-end;
-
 function TEceEditorWindow.GetDocumentTitle: string;
 begin
   Result := ExtractFileName(FFileName);
@@ -1393,7 +1467,7 @@ begin
 end;
 
 function TEceEditorWindow.UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL;
-  function Test(k: Char; c: BOOL = true; s: BOOL = false; a: BOOL = false)
+  function Test(k: char; c: BOOL = true; s: BOOL = false; a: BOOL = false)
     : Boolean;
   begin
     Result := (ord(k) = key) and (c = ctrl) and (s = shift) and (a = alt);
@@ -1660,6 +1734,11 @@ begin
   Result.Left := Gutter.Size;
 end;
 
+function TEceEditorWindow.GetFileName: string;
+begin
+  Result := FFileName;
+end;
+
 function TEceEditorWindow.GetCharsInHeight: integer;
 begin
   Result := (EditorRect.Bottom) div CharHeight;
@@ -1858,15 +1937,17 @@ var
   i, Count: integer;
   Pen: HPen;
   // Brush : HBRUSH;
-  Char: Pchar;
+  char: Pchar;
   ChWidth: integer;
   Tk: TToken;
+  j: integer;
+  CharIndex: integer;
   // bid : TLogBrush;
 begin
   Count := Length - StartChar;
   if Count <> 0 then
   begin
-    Char := Pchar(FText) + StartChar;
+    char := Pchar(FText) + StartChar;
     ChWidth := FEditor.CharWidth;
     // Выводим все символы
     { TODO -oOnni -cGeneral : Добавить возможность выделения }
@@ -1879,8 +1960,8 @@ begin
         SetBkMode(DC, TRANSPARENT);
         SetTextColor(DC, FEditor.TextColor);
 
-        TextOut(DC, Cx, Cy, Char, 1);
-        inc(Char);
+        TextOut(DC, Cx, Cy, char, 1);
+        inc(char);
         inc(Cx, ChWidth);
       end;
 {$ENDREGION}
@@ -1888,17 +1969,57 @@ begin
     else
     begin
 {$REGION 'Вывод, согласно данным токена'}
-      for i := 0 to FTokens.Count - 1 do
+      if isSelection then
       begin
-        Tk := TToken(FTokens[i]);
-        // if StartChar > tk.FirstChar + tk.Length  then
-        // continue;
-        { TODO -oOnni -cDraw : оптимизировать }
-        Tk.ApplyStyle(DC);
-        Char := @FText[Tk.FirstChar + 1];
-        TextOut(DC, Cx - FEditor.OffsetX * FEditor.CharWidth, Cy, Char,
-          Tk.Length);
-        inc(Cx, Tk.Length * FEditor.CharWidth);
+{$REGION 'Если строка выделена'}
+        CharIndex := 0;
+        for i := 0 to FTokens.Count - 1 do
+        begin
+          Tk := TToken(FTokens[i]);
+          // if StartChar > tk.FirstChar + tk.Length  then
+          // continue;
+          { TODO -oOnni -cDraw : оптимизировать }
+          Tk.TokenClass.ApplyStyle(DC);
+          // SelectionTk.ApplyStyleEx(DC, AF_TEXT or AF_BG);
+          char := @FText[Tk.FirstChar + 1];
+          for j := 0 to Tk.Length - 1 do
+          begin
+            if (CharIndex >= FEditor.Caret.SelectionRange.selStart.X) and
+              (CharIndex < FEditor.Caret.SelectionRange.selEnd.X) then
+            begin
+              FEditor.Tokens.Tokens['selection'].ApplyStyleEx
+                (DC, AF_TEXT or AF_BG);
+            end
+            else
+            begin
+              Tk.TokenClass.ApplyStyleEx(DC, AF_TEXT or AF_BG);
+            end;
+
+            TextOut(DC, Cx - FEditor.OffsetX * FEditor.CharWidth, Cy, char, 1);
+            inc(Cx, FEditor.CharWidth);
+            inc(char);
+            inc(CharIndex);
+          end;
+          // inc(Cx, Tk.Length * FEditor.CharWidth);
+        end;
+{$ENDREGION}
+      end
+      else
+      begin
+{$REGION 'Если строка не выделена'}
+        for i := 0 to FTokens.Count - 1 do
+        begin
+          Tk := TToken(FTokens[i]);
+          // if StartChar > tk.FirstChar + tk.Length  then
+          // continue;
+          { TODO -oOnni -cDraw : оптимизировать }
+          Tk.TokenClass.ApplyStyle(DC);
+          char := @FText[Tk.FirstChar + 1];
+          TextOut(DC, Cx - FEditor.OffsetX * FEditor.CharWidth, Cy, char,
+            Tk.Length);
+          inc(Cx, Tk.Length * FEditor.CharWidth);
+        end;
+{$ENDREGION}
       end;
       RestorStyle(DC);
 {$ENDREGION}
@@ -1960,6 +2081,11 @@ begin
   Result := Text;
 end;
 
+procedure TLine._Insert(AValue: string; AChar: integer);
+begin
+  Insert(AValue, AChar);
+end;
+
 function TLine._SetText(Text: string): integer;
 begin
   Self.Text := Text;
@@ -1990,6 +2116,16 @@ end;
 Function TLine.GetisRollBlock: Boolean;
 begin
   Result := FRolllUpFor <> nil;
+end;
+
+function TLine.GetIsSelection: Boolean;
+var
+  c: TCaret;
+begin
+  c := FEditor.Caret;
+  {$IFNDEF fpc}
+  Result := (c.HaveSelection) and (c.SelectionRange.InRange(LineIndex));
+  {$ENDIF}
 end;
 
 Procedure TLine.SetIsRollUp(const value: Boolean);
@@ -2394,6 +2530,11 @@ begin
   SetCaretPos(Cx, Cy);
 end;
 
+function TCaret._GetLine: integer;
+begin
+  Result := Line;
+end;
+
 function TCaret._GetX: integer;
 begin
   Result := X;
@@ -2447,6 +2588,44 @@ end;
 procedure TTokenClass.SetUnderline(const value: Boolean);
 begin
   FUnderline := value;
+end;
+
+procedure TTokenClass.ApplyStyle(DC: HDC);
+begin
+  if BkColor <> -1 then
+  begin
+    SetBkMode(DC, OPAQUE);
+    Windows.SetBkColor(DC, BkColor)
+  end
+  else
+    SetBkMode(DC, TRANSPARENT);
+
+  SelectObject(DC, Editor.FFonts[FontStyle]);
+  SetTextCharacterExtra(DC, Editor.FFontExtraSpace[FontStyle]);
+  Windows.SetTextColor(DC, TextColor);
+end;
+
+procedure TTokenClass.ApplyStyleEx(DC: HDC; UFlags: Word);
+begin
+  if (UFlags and AF_BG) <> 0 then
+  begin
+    if BkColor <> -1 then
+    begin
+      SetBkMode(DC, OPAQUE);
+      Windows.SetBkColor(DC, BkColor)
+    end
+    else
+      SetBkMode(DC, TRANSPARENT);
+  end;
+  if (UFlags and AF_STYLE) <> 0 then
+  begin
+    SelectObject(DC, Editor.FFonts[FontStyle]);
+    SetTextCharacterExtra(DC, Editor.FFontExtraSpace[FontStyle]);
+  end;
+  if (UFlags and AF_TEXT) <> 0 then
+  begin
+    Windows.SetTextColor(DC, TextColor);
+  end;
 end;
 
 { TTokenClassList }
@@ -2506,26 +2685,16 @@ end;
 
 { TToken }
 
-procedure TToken.ApplyStyle(DC: HDC);
-begin
-  if TokenClass.BkColor <> -1 then
-  begin
-    SetBkMode(DC, OPAQUE);
-    SetBkColor(DC, TokenClass.BkColor)
-  end
-  else
-    SetBkMode(DC, TRANSPARENT);
-
-  SelectObject(DC, TokenClass.Editor.FFonts[TokenClass.FontStyle]);
-  SetTextCharacterExtra(DC, TokenClass.Editor.FFontExtraSpace
-      [TokenClass.FontStyle]);
-  SetTextColor(DC, TokenClass.TextColor);
-end;
-
 constructor TToken.Create(ATokenClass: TTokenClass);
 begin
   inherited Create;
   FTokenClass := ATokenClass;
+end;
+
+destructor TToken.Destroy;
+begin
+
+  inherited;
 end;
 
 procedure TToken.SetFirstChar(const value: Cardinal);
@@ -2540,10 +2709,17 @@ end;
 
 { TEceEditorLoader }
 
+function TEceEditorLoader.CheckDocument(AApp: IEceApplication;
+  AFileName: string): Boolean;
+begin
+  Result := true;
+end;
+
 function TEceEditorLoader.CreateDocument(AApp: IEceApplication;
   AFileName: string; var IDoc: IEceDocument; var ErrResult: string): Boolean;
 begin
   IDoc := TEceEditorWindow.Create(AApp._GetHandle, AApp);
+  IDoc._LoadFromFile(AFileName);
   Result := true;
 end;
 
@@ -2557,4 +2733,11 @@ begin
   Result := 'Редактор исходного кода.';
 end;
 
+{ TSelectionRange }
+{$IFNDEF fpc}
+function TSelectionRange.InRange(Line: integer): Boolean;
+begin
+  Result := (selStart.Y >= Line) and (selEnd.Y <= Line);
+end;
+{$ENDIF}
 end.

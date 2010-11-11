@@ -20,6 +20,11 @@ type
     function GetFileName : string; stdcall;
 
     procedure _LoadFromFile(Const filename : string); stdcall;
+
+    procedure _Show; stdcall;
+    procedure _Hide; stdcall;
+    procedure _SetViewRect(left, top, right, bottom : Integer); stdcall;
+    procedure _SetParent(Parent : HWND); stdcall;
   public
     constructor Create(parent : HWND);
     destructor Destroy; override;
@@ -68,6 +73,11 @@ begin
   Result := FHandle;
 end;
 
+procedure THexViewDoc._Hide;
+begin
+  ShowWindow(FHandle, SW_HIDE)
+end;
+
 procedure THexViewDoc._KillFocus;
 begin
 
@@ -81,6 +91,21 @@ end;
 procedure THexViewDoc._SetFocus;
 begin
   SetFocus(FHandle)
+end;
+
+procedure THexViewDoc._SetParent(Parent: HWND);
+begin
+  SetParent(FHandle, Parent)
+end;
+
+procedure THexViewDoc._SetViewRect(left, top, right, bottom: Integer);
+begin
+  SetWindowPos(FHandle, 0, left, top, right - left, bottom - top, 0)
+end;
+
+procedure THexViewDoc._Show;
+begin
+  ShowWindow(FHandle, SW_SHOW)
 end;
 
 end.

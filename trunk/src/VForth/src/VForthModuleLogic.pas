@@ -124,7 +124,7 @@ begin
 
     AMachine.Stack := s;
     // если вызывают Do@ то кладем в стек счетчик цикла
-    if PAthomStr[2] = '@' then
+    if PAthomStr[0] = '@' then
     begin
       //debug
       AMachine.PushInt(v1.IntValue);
@@ -163,7 +163,7 @@ begin
       Addr := AMachine.ReturnAddr;
       AMachine.CourientTkIndex := Addr;
       // Если там Do@ то кладем переменную в вершину стека
-      if Pchar(AMachine.GetTk(Addr))[2] = '@' then
+      if Pchar(AMachine.GetTk(Addr))[0] = '@' then
       begin
         AMachine.Stack := s;
         AMachine.PushInt(v1.IntValue);
@@ -544,7 +544,7 @@ begin
   AMachine.AddAthom(CreateVForthSystemAthom('raise', self, VfRaise));
 
   AMachine.AddAthom(CreateVForthSystemAthom('do', self, VfDo));
-  AMachine.AddAthom(CreateVForthSystemAthom('do@', self, VfDo));
+  AMachine.AddAthom(CreateVForthSystemAthom('@do', self, VfDo));
   AMachine.AddAthom(CreateVForthSystemAthom('loop', self, VfLoop));
 
   AMachine.AddAthom(CreateVForthSystemAthom('begin', self, VfBegin));

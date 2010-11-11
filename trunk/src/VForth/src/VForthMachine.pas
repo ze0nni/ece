@@ -16,6 +16,7 @@ uses
   Contnrs;
 
 type
+
   EVForthMachineError = class(Exception)
   end;
 
@@ -97,6 +98,7 @@ type
     procedure StdErr(str: string); stdcall;
 
     procedure LoadModule(AModule: IVForthModule); stdcall;
+    procedure LoadLibrary(AModule: string); stdcall;
     procedure AddAthom(AAthom: IVForthAthom); stdcall;
     procedure AddCode(ACode: string); stdcall;
 
@@ -149,6 +151,8 @@ uses
   VForthVariants;
 
 type
+  PLoadLibraryProc = procedure (M : IVForthMachine); stdcall;
+
   TVForthAthom = class(TInterfacedObject, IVForthAthom)
   private
     FTk: TStringList;
@@ -867,6 +871,22 @@ begin
   end;
   raise EVForthMachineError.CreateFmt
     ('Variable "%s" not found', [AVaribleName]);
+end;
+
+procedure TVForthMachine.LoadLibrary(AModule: string);
+var
+  hdll : HMODULE;
+  p: PLoadLibraryProc;
+begin
+  hdll := Windows.LoadLibrary(Pchar(AModule));
+  if hdll = 0 then raise EVForthMachineError.CreateFmt('Module "%s" is not load.', [AModule]);
+  p := GetProcAddress(Hdll, 'Load');
+  if @p = nil then
+  begin
+    FreeLibrary(hdll);
+    raise EVForthMachineError.CreateFmt('Procedure "Load" in "%s" not found.', [AModule]);
+  end;
+  p(self);
 end;
 
 procedure TVForthMachine.LoadModule(AModule: IVForthModule);

@@ -7,6 +7,7 @@ uses
   SysUtils,
   Classes,
   Windows,
+  ShellApi,
   VForthModule,
   VForth;
 
@@ -591,12 +592,46 @@ begin
     sl.Free;
   end;
 end;
+
+procedure VfLoadLibrary(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  AMachine.LoadLibrary(AMachine.PopString);
+end;
+
+procedure VfExecute(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  pr, cmd: string;
+  sif : TStartupInfo;
+  pif : TProcessInformation;
+begin
+  pr := AMachine.PopString;
+  cmd := AMachine.PopString;
+  ZeroMemory(@sif, SizeOf(sif));
+  sif.dwFlags := STARTF_USESTDHANDLES;
+  sif.hStdInput := GetStdHandle(STD_INPUT_HANDLE);
+  sif.hStdOutput := GetStdHandle(STD_OUTPUT_HANDLE);
+  sif.hStdError := GetStdHandle(STD_ERROR_HANDLE);
+  AMachine.PushInt(Integer(CreateProcess(Pchar(pr), Pchar(cmd), nil, nil, false, 0, nil, nil, sif, pif)));
+end;
+
+procedure VfRun(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+var
+  pr, cmd: string;
+begin
+  pr := AMachine.PopString;
+  cmd := AMachine.PopString;
+  AMachine.PushInt(ShellExecute(0, 'open', PChar(pr), PChar(cmd), nil,
+      SW_SHOWNORMAL));
+end;
 { TVForthModuleSystem }
 
 procedure TVForthModuleSystem.Register(AMachine: IVForthMachine);
 begin
   AMachine.AddAthom(CreateVForthSystemAthom('stack', Self, VfStack));
-  AMachine.AddAthom(CreateVForthSystemAthom('stack@', Self, VfGetStack));
+  AMachine.AddAthom(CreateVForthSystemAthom('@stack', Self, VfGetStack));
 
   AMachine.AddAthom(CreateVForthSystemAthom('swap', Self, VfSwap));
   AMachine.AddAthom(CreateVForthSystemAthom('dup', Self, VfDup));
@@ -622,10 +657,10 @@ begin
   AMachine.AddAthom(CreateVForthSystemAthom('!', Self, VfSetVariable));
   AMachine.AddAthom(CreateVForthSystemAthom('@', Self, VfGetVariable));
   AMachine.AddAthom(CreateVForthSystemAthom('vector', Self, VfVector));
-  AMachine.AddAthom(CreateVForthSystemAthom('v!', Self, VfVectorSetVariable));
-  AMachine.AddAthom(CreateVForthSystemAthom('v@', Self, VfVectorGetVariable));
-  AMachine.AddAthom(CreateVForthSystemAthom('vs!', Self, VfSetVectorSize));
-  AMachine.AddAthom(CreateVForthSystemAthom('vs@', Self, VfGetVectorSize));
+  AMachine.AddAthom(CreateVForthSystemAthom('!v', Self, VfVectorSetVariable));
+  AMachine.AddAthom(CreateVForthSystemAthom('@v', Self, VfVectorGetVariable));
+  AMachine.AddAthom(CreateVForthSystemAthom('!vs', Self, VfSetVectorSize));
+  AMachine.AddAthom(CreateVForthSystemAthom('@vs', Self, VfGetVectorSize));
 
   AMachine.AddAthom(CreateVForthSystemAthom('record', Self, VfRecord));
   AMachine.AddAthom(CreateVForthSystemAthom('end', Self, VfEnd));
@@ -640,12 +675,12 @@ begin
   AMachine.AddAthom(CreateVForthSystemAthom('escapestr', Self, VfEscapeStr));
   AMachine.AddAthom(CreateVForthSystemAthom('formatstr', Self, VfFormatStr));
 
-  AMachine.AddAthom(CreateVForthSystemAthom('strlen@', Self, VfGetStrLen));
-  AMachine.AddAthom(CreateVForthSystemAthom('strlen!', Self, VfSetStrLen));
+  AMachine.AddAthom(CreateVForthSystemAthom('@strlen', Self, VfGetStrLen));
+  AMachine.AddAthom(CreateVForthSystemAthom('!strlen', Self, VfSetStrLen));
   AMachine.AddAthom(CreateVForthSystemAthom('strupper', Self, VfStrUpper));
   AMachine.AddAthom(CreateVForthSystemAthom('strlower', Self, VfStrLower));
-  AMachine.AddAthom(CreateVForthSystemAthom('c@', Self, VfStrGetChar));
-  AMachine.AddAthom(CreateVForthSystemAthom('c!', Self, VfStrSetChar));
+  AMachine.AddAthom(CreateVForthSystemAthom('@c', Self, VfStrGetChar));
+  AMachine.AddAthom(CreateVForthSystemAthom('!c', Self, VfStrSetChar));
 
   AMachine.AddAthom(CreateVForthSystemAthom('w32Bool', Self, VfWin32Type));
   AMachine.AddAthom(CreateVForthSystemAthom('w32Byte', Self, VfWin32Type));
@@ -658,6 +693,10 @@ begin
   AMachine.AddAthom(CreateVForthSystemAthom('w32Pointer', Self, VfWin32Type));
 
   AMachine.AddAthom(CreateVForthSystemAthom('Import', Self, VfImport));
+  AMachine.AddAthom(CreateVForthSystemAthom('LoadLibrary', Self, VfLoadLibrary));
+
+  AMachine.AddAthom(CreateVForthSystemAthom('Exec', Self, VfExecute));
+  AMachine.AddAthom(CreateVForthSystemAthom('Run', Self, VfRun));
 end;
 
 end.

@@ -60,12 +60,14 @@
 			<DCCReference Include="VForthModule.pas"/>
 			<DCCReference Include="VForthModuleDateTime.pas"/>
 			<DCCReference Include="VForthVariantArray.pas"/>
-			<DCCReference Include="VForthModuleWin32.pas">
-				<Form>/VForthModuleOle in &apos;VForthModuleOle.pas&apos;;</Form>
-			</DCCReference>
+			<DCCReference Include="VForthModuleWin32.pas"/>
 			<RcItem Include="icon.ico">
 				<ResourceType>Icon</ResourceType>
 				<ResourceId>ApplicationIcon</ResourceId>
+			</RcItem>
+			<RcItem Include="icondoc.ico">
+				<ResourceType>Icon</ResourceType>
+				<ResourceId>DocumentIcon</ResourceId>
 			</RcItem>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
