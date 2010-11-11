@@ -25,6 +25,11 @@ type
     function GetFileName: string; stdcall;
 
     procedure _LoadFromFile(Const filename: string); stdcall;
+
+    procedure _Show; stdcall;
+    procedure _Hide; stdcall;
+    procedure _SetViewRect(left, top, right, bottom : Integer); stdcall;
+    procedure _SetParent(Parent : HWND); stdcall;
   public
     constructor Create(Parent : HWND);
     destructor Destroy; override;
@@ -74,6 +79,11 @@ begin
   Result := FIE.HWnd;
 end;
 
+procedure TStartPageDoc._Hide;
+begin
+
+end;
+
 procedure TStartPageDoc._KillFocus;
 begin
 
@@ -85,6 +95,21 @@ begin
 end;
 
 procedure TStartPageDoc._SetFocus;
+begin
+
+end;
+
+procedure TStartPageDoc._SetParent(Parent: HWND);
+begin
+
+end;
+
+procedure TStartPageDoc._SetViewRect(left, top, right, bottom: Integer);
+begin
+
+end;
+
+procedure TStartPageDoc._Show;
 begin
 
 end;

@@ -163,7 +163,9 @@ begin
   inherited;
   FApplication := AApplication;
 {$IFDEF forth}
-  FVForthMachine := CreateVForthMachine;
+//  FVForthMachine := CreateVForthMachine;
+  FVForthMachine := TVForthMachine.Create;
+  FVForthMachine._AddRef;
   { DONE -oOnni -cGeneral : –ешение проблемы выелета при выходе их приложени€ }
   FVForthMachine._AddRef;
 

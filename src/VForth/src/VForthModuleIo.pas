@@ -131,6 +131,7 @@ var
 begin
   FileName := AMachine.PopString;
   HFile := FileOpen(FileName, GetFileMode(AMachine.PopString));
+  if HFile = 0 then
   RaiseLastWin32Error([ERROR_SUCCESS]);
   FileV := TFileVariant.Create;
   FileV.HFile := HFile;

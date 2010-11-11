@@ -35,6 +35,7 @@ type
     procedure StdOut(str: string); stdcall;
     procedure StdErr(str: string); stdcall;
     procedure LoadModule(AModule: IVForthModule); stdcall;
+    procedure LoadLibrary(AModule: string); stdcall;
     procedure AddAthom(AAthom: IVForthAthom); stdcall;
     procedure AddCode(ACode: string); stdcall;
 
@@ -145,17 +146,17 @@ type
     procedure StdErr(str: string); stdcall;
   end;
 
-function CreateVForthMachine: IVForthMachine; stdcall;
+//function CreateVForthMachine: IVForthMachine; stdcall;
 
 implementation
 
-uses VForthMachine;
-
-function CreateVForthMachine: IVForthMachine; stdcall;
-begin
-  Result := TVForthMachine.Create;
-end;
-
-exports CreateVForthMachine;
+//uses VForthMachine;
+//
+//function CreateVForthMachine: IVForthMachine; stdcall;
+//begin
+//  Result := TVForthMachine.Create;
+//end;
+//
+//exports CreateVForthMachine;
 
 end.

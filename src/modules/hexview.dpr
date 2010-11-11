@@ -24,6 +24,7 @@ type
     function GetTitle: string; stdcall;
     function CreateDocument(App: IEceApplication; AFileName: string;
       var IDoc: IEceDocument; var ErrResult: string): boolean; stdcall;
+    function CheckDocument(AApp : IEceApplication; AFileName : string) : Boolean; stdcall;
   end;
 
 function GetPlugin: IEcePlugin; stdcall;
@@ -53,6 +54,7 @@ var
 begin
   // Тут повесим события на некоторые объекты
   App.RegisterDocument(TDocumentLoader.Create);
+  result := true;
 end;
 
 procedure TPlugin.UnLoad(App: IEceApplication);
@@ -61,6 +63,12 @@ begin
 end;
 
 { TDocumentLoader }
+
+function TDocumentLoader.CheckDocument(AApp: IEceApplication;
+  AFileName: string): Boolean;
+begin
+  Result := true;
+end;
 
 function TDocumentLoader.CreateDocument(App: IEceApplication;
   AFileName: string; var IDoc: IEceDocument; var ErrResult: string): boolean;

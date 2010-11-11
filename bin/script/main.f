@@ -7,7 +7,14 @@ AddEceMenuItem drop;
 
 "File/" var MenuFile
 TBSkin "filenew.bmp" + 1 1 "" MenuFile "New" + AddEceMenuItem
-TBSkin "fileopen.bmp" + 1 1 "FileOpenDlg" MenuFile "Open..." +  AddEceMenuItem
+:emFileOpen
+	FileOpenDlg dup "" != if
+		AppNewDocument
+	else
+		drop
+	then
+;
+TBSkin "fileopen.bmp" + 1 1 "emFileOpen" MenuFile "Open..." +  AddEceMenuItem
 MenuFile MenuSaparator
 :emFileSave 
 	GetDocFileName "" = if 
@@ -37,29 +44,17 @@ drop ( MenuEdit )
 
 "View/" var MenuView
     MenuView "Codepage/" + var MenuCodepage
-    TBSkin "viewcodepageutf8.bmp" + 1 1 "" MenuCodepage "UTF-8" + AddEceMenuItem
-    TBSkin "viewcodepagecp1251.bmp" + 1 1 "" MenuCodepage "CP1251" + AddEceMenuItem
-    TBSkin "viewcodepagekoi8-r.bmp" + 1 1 "" MenuCodepage "KOI8-R" + AddEceMenuItem
-    TBSkin "viewcodepagecp866.bmp" + 1 1 "" MenuCodepage "CP866" + AddEceMenuItem
+    TBSkin "viewcodepageutf8.bmp" + 1 1 "cpUtf8" MenuCodepage "UTF-8" + AddEceMenuItem
+    TBSkin "viewcodepagecp1251.bmp" + 1 1 "cp1251" MenuCodepage "CP1251" + AddEceMenuItem
+    TBSkin "viewcodepagekoi8-r.bmp" + 1 1 "cpKoi8" MenuCodepage "KOI8-R" + AddEceMenuItem
+    TBSkin "viewcodepagecp866.bmp" + 1 1 "cp866" MenuCodepage "CP866" + AddEceMenuItem
     drop ( MenuCodepage )
 drop ( MenuView )
 
 "Tools/" var MenuTools
-TBSkin "execute.bmp" + 1 1 "" MenuTools "Make\tF9" + AddEceMenuItem
+TBSkin "execute.bmp" + 1 1 "make" MenuTools "Make\tF9" + AddEceMenuItem
 TBSkin "" + 1 1 "" MenuTools "Make config..." + AddEceMenuItem
-(
-"script\japman.f" import
-TBSkin "" + 1 1 "1 Japs" MenuTools "Japs/Less 1 Гласные A И У Э О" + AddEceMenuItem
-TBSkin "" + 1 1 "2 Japs" MenuTools "Japs/Less 2 К*" + AddEceMenuItem
-TBSkin "" + 1 1 "3 Japs" MenuTools "Japs/Less 3 С*" + AddEceMenuItem
-TBSkin "" + 1 1 "4 Japs" MenuTools "Japs/Less 4 Т*" + AddEceMenuItem
-TBSkin "" + 1 1 "5 Japs" MenuTools "Japs/Less 5 Н*" + AddEceMenuItem
-TBSkin "" + 1 1 "6 Japs" MenuTools "Japs/Less 6 Х*" + AddEceMenuItem
-TBSkin "" + 1 1 "7 Japs" MenuTools "Japs/Less 7 М*" + AddEceMenuItem
 
-TBSkin "" + 1 1 "8 Japs" MenuTools "Japs/Less 8 Х*" + AddEceMenuItem
-TBSkin "" + 1 1 "9 Japs" MenuTools "Japs/Less 9 Х*" + AddEceMenuItem
-)
 drop ( MenuTools )
 
 "Help/" var MenuHelp
@@ -119,3 +114,6 @@ else
 :EDate Now Date EditorInsert;
 :EDTime Now DateTime EditorInsert;
 
+:make
+	GetDocFileName "C:\FPC\2.2.2\bin\i386-win32\fpc.exe" exec if "ok" else "fail" then .
+;

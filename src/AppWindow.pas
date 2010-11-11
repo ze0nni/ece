@@ -35,6 +35,10 @@ type
     VisibleTest: string;
   end;
 
+  EEceApplicationException = class(Exception)
+
+  end;
+
   TEceAppWindow = class(TzeWndControl, IEceApplication, IDispatch
 {$IFDEF forth}, IVForthModule {$ENDIF})
   protected
@@ -49,6 +53,7 @@ type
     FImgList: HIMAGELIST;
     // Модули
     FDocTypes: TInterfaceList;
+    FDocTypesEx: TStringList;
 {$IFDEF forth}
     FModuleProp: TStringList;
 {$ENDIF}
@@ -84,7 +89,7 @@ type
     // Возвращает активный документ или документ, номер которого в вершине стека
     function GetDoc(AMachine: IVForthMachine; const Word: string): IEceDocument;
     function GetEditor(AMachine: IVForthMachine; const Word: string)
-      : IEceDocument;
+      : IEceEditor;
 {$ENDIF}
   protected
     function _GetHandle: HWND; safecall;
@@ -95,6 +100,8 @@ type
     procedure _UpdateCaption; safecall;
   private
     function GethMenu(APath: string; var MenuName: string): HMENU;
+    function GetDocTypeIndex(AFileName: string): Integer;
+    function GetDocLoaderIndexByName(Name: string): Integer;
   protected
     function InvokeName(DispID: Integer; const IID: TGUID; LocaleID: Integer;
       Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
@@ -119,6 +126,7 @@ type
     // Модули
     function CreateDocument(AFileName: string): IEceDocument;
     procedure RegisterDocument(Doc: IEceDocumentLoader); stdcall;
+    procedure RegisterDocumentEx(Doc: IEceDocumentLoader; ext: string); stdcall;
   end;
 
 var
@@ -202,14 +210,16 @@ begin
     exit;
   GetClientRect(Handle, rt);
   GetClientRect(FToolBar, tbRect);
-//  SetWindowPos(FToolBar, 0, 0, 0, tbRect.Bottom, rt.Right,
-//    SWP_NOMOVE or SWP_NOACTIVATE);
+  // SetWindowPos(FToolBar, 0, 0, 0, tbRect.Bottom, rt.Right,
+  // SWP_NOMOVE or SWP_NOACTIVATE);
   SendMessage(FToolBar, TB_AUTOSIZE, 0, 0);
 
   SetWindowPos(FPages.Handle, 0, 0, tbRect.Bottom, rt.Right, 24,
     SWP_NOACTIVATE);
-  SetWindowPos(ActiveDocumentWindow._GetHandle, 0, 0, tbRect.Bottom + 24,
-    rt.Right, rt.Bottom - 24 - 105 - tbRect.Bottom, SWP_NOACTIVATE);
+  // SetWindowPos(ActiveDocumentWindow._GetHandle, 0, 0, tbRect.Bottom + 24,
+  // rt.Right, rt.Bottom - 24 - 105 - tbRect.Bottom, SWP_NOACTIVATE);
+  ActiveDocumentWindow._SetViewRect(0, tbRect.Bottom + 24, rt.Right,
+    rt.Bottom - 24 - 105 - tbRect.Bottom);
   SetWindowPos(FConsole.Handle, 0, 0, rt.Bottom - 105, rt.Right, 105,
     SWP_NOACTIVATE)
 end;
@@ -284,12 +294,9 @@ begin
   FMenus := TStringList.Create;
 
   // ToolBAr
-  FToolBar := CreateWindowEx
-    (TBSTYLE_EX_DOUBLEBUFFER,
-    TOOLBARCLASSNAME,
-    'ToolBar',
-    WS_VISIBLE or WS_CHILD or TBSTYLE_TOOLTIPS OR TBSTYLE_FLAT,
-    0, 0, 0, 24, Handle, 0, HInstance, nil);
+  FToolBar := CreateWindowEx(TBSTYLE_EX_DOUBLEBUFFER, TOOLBARCLASSNAME,
+    'ToolBar', WS_VISIBLE or WS_CHILD or TBSTYLE_TOOLTIPS OR TBSTYLE_FLAT, 0,
+    0, 0, 24, Handle, 0, HInstance, nil);
   FImgList := ImageList_Create(16, 16, ILC_COLOR24, 0, 0);
   SendMessage(FToolBar, TB_SETIMAGELIST, 0, FImgList);
 
@@ -297,8 +304,12 @@ begin
   FPages := TPages.Create(Handle);
   ShowWindow(FPages.Handle, SW_SHOW);
   FConsole := TEceConsoleWindow.Create(Handle, Self);
-  FConsole.LoadColorTheme('color\console.txt');
-  FConsole.SetFont('Consolas', 14);
+  FConsole.LoadColorTheme(ExtractFilePath(ParamStr(0)) + 'color\console.txt');
+  try
+    FConsole.SetFont('Consolas', 14);
+  except
+
+  end;
   FConsole.Caret.Style := csClassic;
 {$IFDEF forth}
   FModuleProp := TStringList.Create;
@@ -324,8 +335,44 @@ begin
   RegisterName('ActiveDocument', PROP_ACTIVEDOCUMENT);
 
   FDocTypes := TInterfaceList.Create;
+  FDocTypesEx := TStringList.Create;
 
   UpdateCaption;
+end;
+
+function TEceAppWindow.GetDocLoaderIndexByName(Name: string): Integer;
+var
+  i: Integer;
+  Doc: IEceDocumentLoader;
+begin
+  for i := 0 to FDocTypes.Count - 1 do
+  begin
+    Doc := IEceDocumentLoader(FDocTypes[i]);
+    if AnsiLowerCase(Name) = AnsiLowerCase(Doc.GetName) then
+      exit(i);
+  end;
+  Result := -1;
+end;
+
+function TEceAppWindow.GetDocTypeIndex(AFileName: string): Integer;
+var
+  ext: String;
+  index: Integer;
+
+begin
+  // Вначале пробегаем по расширениям
+  ext := ExtractFileExt(AFileName);
+  index := FDocTypesEx.IndexOfName(ext);
+  if index <> -1 then
+  begin
+    Result := GetDocLoaderIndexByName(FDocTypesEx.ValueFromIndex[index]);
+    if Result <> -1 then
+      exit;
+  end
+  else
+  begin
+    Result := 0;
+  end;
 end;
 
 function TEceAppWindow.CreateDocument(AFileName: string): IEceDocument;
@@ -333,11 +380,14 @@ var
   Loader: IEceDocumentLoader;
   err: string;
 begin
-  Loader := IEceDocumentLoader(FDocTypes[0]);
+  Loader := IEceDocumentLoader(FDocTypes[GetDocTypeIndex(AFileName)]);
   Loader.CreateDocument(Self, AFileName, Result, err);
 end;
 
 Destructor TEceAppWindow.Destroy;
+var
+  pi: ^IInterface;
+  i: Integer;
 begin
   ImageList_Destroy(FImgList);
 
@@ -363,6 +413,10 @@ begin
   begin
     FDocTypes.Free;
   end;
+  if Assigned(FDocTypesEx) then
+  begin
+    FDocTypesEx.Free;
+  end;
 {$IFDEF forth}
   if Assigned(FModuleProp) then
     FModuleProp.Free;
@@ -377,6 +431,7 @@ begin
   // NewDocument := IEceDocument.Create(Handle, Self);
   NewDocument := CreateDocument(AFileName);
   FDocuments.Add(NewDocument);
+  FPages.AddPage(NewDocument.GetFileName, nil);
   SendMessage(Handle, WM_SIZE, 0, 0);
 end;
 
@@ -384,6 +439,12 @@ procedure TEceAppWindow.RegisterDocument(Doc: IEceDocumentLoader);
 begin
   if FDocTypes.IndexOf(Doc) = -1 then
     FDocTypes.Add(Doc);
+end;
+
+procedure TEceAppWindow.RegisterDocumentEx(Doc: IEceDocumentLoader;
+  ext: string);
+begin
+  FDocTypesEx.Insert(0, format('%s=%s', [ext, Doc.GetName]));
 end;
 
 function TEceAppWindow.CloseDocument(const index: Integer): boolean;
@@ -434,10 +495,10 @@ begin
   end;
 end;
 
-procedure ClearBitmap(hbmp : HBITMAP);
+procedure ClearBitmap(hbmp: HBITMAP);
 var
-  cdc : HDC;
-  I: Integer;
+  cdc: HDC;
+  i: Integer;
   j: Integer;
   c: Integer;
   cc: Integer;
@@ -446,7 +507,7 @@ begin
   SelectObject(cdc, hbmp);
   c := GetPixel(cdc, 0, 15);
   cc := GetSysColor(COLOR_BTNFACE);
-  for I := 0 to 32 - 1 do
+  for i := 0 to 32 - 1 do
     for j := 0 to 16 - 1 do
     begin
       if GetPixel(cdc, i, j) = c then
@@ -458,7 +519,7 @@ end;
 procedure TEceAppWindow.AppendMenu(AName, AAction, EnableTest, VisibleTest,
   Image: string);
 var
-  hBmp: HBITMAP;
+  hbmp: HBITMAP;
   Menu: HMENU;
   MenuName: string;
   m: HMENU;
@@ -473,12 +534,12 @@ begin
   if MenuName <> '-' then
   begin
     Windows.AppendMenu(Menu, MF_STRING, FMenuID, PChar(MenuName));
-    hBmp := LoadImage(HInstance, PChar(Image), IMAGE_BITMAP, 0, 0,
+    hbmp := LoadImage(HInstance, PChar(Image), IMAGE_BITMAP, 0, 0,
       LR_LOADFROMFILE or LR_LOADTRANSPARENT or LR_COLOR);
 
-    ClearBitmap(hBmp);
+    ClearBitmap(hbmp);
 
-    SetMenuItemBitmaps(Menu, FMenuID, MF_BYCOMMAND, hBmp, hBmp);
+    SetMenuItemBitmaps(Menu, FMenuID, MF_BYCOMMAND, hbmp, hbmp);
 
     new(mi);
     mi^.Handle := Menu;
@@ -497,9 +558,9 @@ begin
     SendMessage(FToolBar, TB_BUTTONSTRUCTSIZE, SizeOf(btn), 0);
     ZeroMemory(@btn, SizeOf(btn));
 
-    if hBmp <> 0 then
+    if hbmp <> 0 then
     begin
-      ImageList_Add(FImgList, hBmp, 0);
+      ImageList_Add(FImgList, hbmp, 0);
       btn.fsStyle := TBSTYLE_BUTTON;
       btn.fsState := TBSTATE_ENABLED;
       btn.idCommand := FMenuID;
@@ -708,12 +769,16 @@ begin
 end;
 
 function TEceAppWindow.GetEditor(AMachine: IVForthMachine; const Word: string)
-  : IEceDocument;
+  : IEceEditor;
+var
+  Doc: IEceDocument;
 begin
   if Word[Length(Word)] <> '*' then
-    Result := IEceDocument(ActiveDocumentWindow)
+    Doc := ActiveDocumentWindow
   else
-    Result := IEceDocument(Documents[AMachine.PopInt]);
+    Doc := Documents[AMachine.PopInt];
+  if Doc.QueryInterface(IIdEceEditor, Result) <> S_OK then
+    raise EEceApplicationException.CreateFmt('Не удалось преобразовать "%s" к %s.', [Doc.GetFileName, GUIDToString(IIdEceEditor)]);
 end;
 {$ENDIF}
 
@@ -774,6 +839,14 @@ procedure efAppQuit(AMachine: IVForthMachine; AAthom: IVForthAthom;
 begin
   PostQuitMessage(0);
 end;
+
+procedure efAppNewDocument(AMachine: IVForthMachine; AAthom: IVForthAthom;
+  PAthomStr: PWideChar); stdcall;
+begin
+  GlApp.NewDocument(AMachine.PopString);
+  GlApp.ActiveDocument := GlApp.DocumentsCount - 1;
+  //GlApp.Documents[GlApp.ActiveDocument]._SetFocus;
+end;
 {$ENDIF}
 {$ENDREGION}
 {$REGION 'Doc'}
@@ -812,17 +885,15 @@ end;
 
 procedure efGetEditorLinesCount(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
-var
-  Ed: IEceDocument;
 begin
-  // AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr).Count);
+  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._GetLinesCount);
 end;
 
 procedure efGetEditorLineText(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // AMachine.PushString(GlApp.GetEditor(AMachine, PAthomStr)
-  // .Strings[AMachine.PopInt]);
+  AMachine.PushString(GlApp.GetEditor(AMachine, PAthomStr)._GetLines
+      (AMachine.PopInt)._GetText);
 end;
 
 procedure efSetEditorLineText(AMachine: IVForthMachine; AAthom: IVForthAthom;
@@ -831,48 +902,50 @@ var
   s: String;
   l: Integer;
 begin
-  // l := AMachine.PopInt;
-  // s := AMachine.PopString;
-  // GlApp.GetEditor(AMachine, PAthomStr).Strings[l] := s;
+  l := AMachine.PopInt;
+  s := AMachine.PopString;
+  GlApp.GetEditor(AMachine, PAthomStr)._GetLines(l)._SetText(s);
 end;
 
 procedure efInvalidateEditor(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // GlApp.GetEditor(AMachine, PAthomStr).Invalidate;
+  GlApp.GetEditor(AMachine, PAthomStr)._Invalidate;
 end;
 
 procedure efInvalidateEditorLine(AMachine: IVForthMachine;
   AAthom: IVForthAthom; PAthomStr: PWideChar); stdcall;
 begin
-  // GlApp.GetEditor(AMachine, PAthomStr).Lines[AMachine.PopInt].Invalidate;
+  GlApp.GetEditor(AMachine, PAthomStr)._InvalidateLine(AMachine.PopInt);
 end;
 
 procedure efAddEditorLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr).AddLine.LineIndex)
+  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._AddLine._GetIndex);
 end;
 
 procedure efAddEditorLineText(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // with GlApp.GetEditor(AMachine, PAthomStr).AddLine do
-  // begin
-  // Text := AMachine.PopString;
-  // AMachine.PushInt(LineIndex);
-  // end;
+  with GlApp.GetEditor(AMachine, PAthomStr)._AddLine do
+  begin
+    _SetText(AMachine.PopString);
+    AMachine.PushInt(_GetIndex);
+  end;
 end;
 
 procedure efInsertEditorLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // GlApp.GetEditor(AMachine, PAthomStr).InsertLine(AMachine.PopInt)
+  GlApp.GetEditor(AMachine, PAthomStr)._InsertLine(AMachine.PopInt)
 end;
 
 procedure efInsertEditorLineText(AMachine: IVForthMachine;
   AAthom: IVForthAthom; PAthomStr: PWideChar); stdcall;
 begin
+  GlApp.GetEditor(AMachine, PAthomStr)._InsertLine(AMachine.PopInt)._SetText
+    (AMachine.PopString)
   // GlApp.GetEditor(AMachine, PAthomStr).InsertLine(AMachine.PopInt)
   // .Text := AMachine.PopString
 end;
@@ -889,6 +962,7 @@ begin
   // else
   //
   // e.DeleteLine(AMachine.PopInt);
+  GlApp.GetEditor(AMachine, PAthomStr)._DeleteLine(AMachine.PopInt);
 end;
 
 // caret
@@ -896,31 +970,31 @@ end;
 procedure efGetEditorCaretX(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr).Caret.X);
+  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._GetX);
 end;
 
 procedure efGetEditorCaretY(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr).Caret.Y);
+  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._GetY);
 end;
 
 procedure efGetEditorCaretLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr).Caret.Line);
+  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._GetLine);
 end;
 
 procedure efSetEditorCaretX(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // GlApp.GetEditor(AMachine, PAthomStr).Caret.X := AMachine.PopInt;
+  GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._SetX(AMachine.PopInt);
 end;
 
 procedure efSetEditorCaretY(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 begin
-  // GlApp.GetEditor(AMachine, PAthomStr).Caret.Y := AMachine.PopInt;
+  GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._SetY(AMachine.PopInt);
 end;
 
 procedure efSetEditorCaretLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
@@ -928,33 +1002,33 @@ procedure efSetEditorCaretLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
 begin
   { TODO -oOnni -cGeneral : Line только для чтения }
   // GlApp.GetEditor(AMachine, PAthomStr).Caret.Line := AMachine.PopInt;
-  // AMachine.StdErr('Readonly property');
+  AMachine.StdErr('Readonly property');
 end;
 
 procedure efEditorInsert(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 var
-  e: IEceDocument;
-  c: TCaret;
+  e: IEceEditor;
+  c: ICaret;
   s: string;
 begin
-  // e := GlApp.GetEditor(AMachine, PAthomStr);
-  // c := e.Caret;
-  // s := AMachine.PopString;
-  // e.Lines[c.Line].Insert(s, c.X + 1);
-  // c.X := c.X + Length(s);
+  e := GlApp.GetEditor(AMachine, PAthomStr);
+  c := e._GetCaret;
+  s := AMachine.PopString;
+  e._GetLines(c._GetLine)._Insert(s, c._GetX + 1);
+  c._SetX(c._GetX + Length(s));
 end;
 
 procedure efEditorInsertXY(AMachine: IVForthMachine; AAthom: IVForthAthom;
   PAthomStr: PWideChar); stdcall;
 var
-  e: IEceDocument;
+  e: IEceEditor;
   l, c: Integer;
 begin
-  // e := GlApp.GetEditor(AMachine, PAthomStr);
-  // l := AMachine.PopInt;
-  // c := AMachine.PopInt;
-  // e.Lines[l].Insert(AMachine.PopString, c + 1);
+   e := GlApp.GetEditor(AMachine, PAthomStr);
+   l := AMachine.PopInt;
+   c := AMachine.PopInt;
+   e._GetLines(l)._Insert(AMachine.PopString, c + 1);
 end;
 
 procedure efEditorOwerwrite(AMachine: IVForthMachine; AAthom: IVForthAthom;
@@ -1002,6 +1076,7 @@ begin
   AddAthom('SetAppTitle', efSetAppTitle, false);
   AddAthom('AppClose', efAppClose, false);
   AddAthom('AppQuit', efAppQuit, false);
+  AddAthom('AppNewDocument', efAppNewDocument, false);
   // DOC
   AddAthom('GetDocsCount', efGetDocsCount, false);
   AddAthom('GetDocFileName', efGetDocFileName, true);
@@ -1041,16 +1116,16 @@ var
   Caption: string;
   Title: string;
 begin
-  // Caption := 'Easy code editor';
-  // if DocumentsCount <> 0 then
-  // begin
-  // Title := ActiveDocumentWindow.DocumentTitle;
-  // if Title = '' then
-  // Title := 'New *';
-  // Caption := Title + ' - ' + Caption;
-  // FPages.pages[ActiveDocument].Title := Title;
-  // end;
-  // SetWindowText(Handle, PChar(Caption))
+  Caption := 'Easy code editor';
+  if DocumentsCount <> 0 then
+  begin
+    Title := ExtractFileName(ActiveDocumentWindow.GetFileName);
+    if Title = '' then
+      Title := 'New *';
+    Caption := Title + ' - ' + Caption;
+    FPages.pages[ActiveDocument].Title := Title;
+  end;
+  SetWindowText(Handle, PChar(Caption))
 end;
 
 function TEceAppWindow.GetActiveDocumentWindow: IEceDocument;

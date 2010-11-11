@@ -378,8 +378,8 @@ begin
 
   AMachine.AddAthom(CreateVForthSystemAthom('random', self, VfRandom));
   AMachine.AddAthom(CreateVForthSystemAthom('randomize', self, VfRandomize));
-  AMachine.AddAthom(CreateVForthSystemAthom('randseed', self, VfRandSeed));
-  AMachine.AddAthom(CreateVForthSystemAthom('randseed@', self, VfGetRandSeed));
+  AMachine.AddAthom(CreateVForthSystemAthom('!randseed', self, VfRandSeed));
+  AMachine.AddAthom(CreateVForthSystemAthom('@randseed', self, VfGetRandSeed));
 end;
 
 end.

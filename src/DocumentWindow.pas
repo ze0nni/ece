@@ -8,6 +8,7 @@ uses
   Messages,
   IEce,
   Classes,
+  ShlObj, ActiveX,
   zeWndControls;
 
 type
@@ -29,9 +30,13 @@ type
     procedure _SetFocus; virtual; stdcall;
     procedure _KillFocus; virtual; stdcall;
     function GetDocumentFileName: string; virtual;
-    function GetDocumentTitle: string; virtual;
+    function GetDocumentTitle: string; virtual; stdcall;
     function GetFileName : string; virtual; stdcall;
     procedure _LoadFromFile(Const filename : string);virtual; stdcall;
+    procedure _Show;virtual; stdcall;
+    procedure _Hide;virtual; stdcall;
+    procedure _SetViewRect(left, top, right, bottom : Integer);virtual; stdcall;
+    procedure _SetParent(Parent : HWND);virtual; stdcall;
   public
     Constructor Create(Parent: Cardinal; AApplication: IEceApplication);
     Destructor Destroy; override;
@@ -131,6 +136,11 @@ begin
   result := Handle;
 end;
 
+procedure TEceDocumentWindow._Hide;
+begin
+  ShowWindow(Handle, SW_HIDE)
+end;
+
 procedure TEceDocumentWindow._KillFocus;
 begin
 
@@ -144,6 +154,21 @@ end;
 procedure TEceDocumentWindow._SetFocus;
 begin
 
+end;
+
+procedure TEceDocumentWindow._SetParent(Parent: HWND);
+begin
+  SetParent(Handle, Parent);
+end;
+
+procedure TEceDocumentWindow._SetViewRect(left, top, right, bottom: Integer);
+begin
+  SetWindowPos(Handle, 0, left, top, right - left, bottom - left, 0);
+end;
+
+procedure TEceDocumentWindow._Show;
+begin
+  ShowWindow(Handle, SW_SHOW)
 end;
 
 end.
