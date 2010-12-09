@@ -44,7 +44,6 @@ end;
 function FindDlgProc(wnd : HWND; msg : Integer; WParam : WPARAM; LParam : LPARAM) : BOOL; stdcall;
 var
   i : Integer;
-  line : string;
 begin
   case msg of
     WM_INITDIALOG:
@@ -65,7 +64,7 @@ begin
                     if RegExp.Test(Editor._GetLines(i)._GetText) then
                     begin
                       Editor._GetCaret._SetY(i);
-                      exit;
+                      exit(true);
                     end;
                     //тада
                     MessageBeep(MB_OK);

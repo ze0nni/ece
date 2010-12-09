@@ -28,7 +28,9 @@ uses
   eceFindDialog in 'eceFindDialog.pas',
   eceSynParser in 'eceSynParser.pas',
   eceConsoleWindow in 'eceConsoleWindow.pas',
-  IeceObj in 'IeceObj.pas';
+  IeceObj in 'IeceObj.pas',
+  EceAppUI in 'EceAppUI.pas';
+
 // {$IFNDEF FPC},
 // RegisterContextMenu in 'RegisterContextMenu.pas'{$ENDIF};
 
@@ -39,11 +41,11 @@ var
 
 begin
 {$IFNDEF FPC}
-  // ReportMemoryLeaksOnShutdown := true;
+//ReportMemoryLeaksOnShutdown := true;
 {$ENDIF}
+  // RegisterShellMenu;
+  App := TEceAppWindow.Create(0);
   try
-    // RegisterShellMenu;
-    App := TEceAppWindow.Create(0);
     // todo: Кривая иконка
     SendMessage(App.Handle, WM_SETICON, ICON_SMALL, LoadIcon
         (HInstance, 'appicon'));
@@ -52,26 +54,15 @@ begin
     // App.LoadPlugin('modules\startpage.dll');  //Стартовая страница
     App.RegisterDocument(TEceEditorLoader.Create); // Окно редактора
 {$IFNDEF FPC}
-    App.LoadPlugin(ExtractFilePath(ParamStr(0)) + 'modules\hexview.dll');
-    // Модуль просмотра HEX
-    App.LoadPlugin(ExtractFilePath(ParamStr(0)) + 'modules\pdfview.dll');
-    // Модуль просмотра PDF
+//    App.LoadPlugin(ExtractFilePath(ParamStr(0)) + 'modules\hexview.dll');
+//    // Модуль просмотра HEX
+//    App.LoadPlugin(ExtractFilePath(ParamStr(0)) + 'modules\pdfview.dll');
+//    // Модуль просмотра PDF
 {$ENDIF}
     App.NewDocument(ParamStr(1));
     App.ActiveDocument := 0;
 
     App.Documents[0]._SetFocus;
-
-    // TEceEditorWindow(App.Documents[0]).Caret.Style := csClassic;
-    // TEceEditorWindow(App.Documents[0]).LoadPlugin
-    // ('EditorModules\autospace.dll');
-    // with TEceEditorWindow(App.Documents[0]) do
-    // begin
-    // // SetFont('Lucida console', 17);
-    // SetFont('Consolas', 22);
-    // LoadColorTheme('color\default.txt');
-    // Caret.Style := csClassic;
-    // end;
 
     // if ParamCount <> 0 then
     // App.Documents[0]._LoadFromFile(ParamStr(1));

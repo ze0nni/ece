@@ -1,13 +1,9 @@
 unit iece;
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
-{$I EceLanguage.inc}
 
 interface
 
 uses
-{$IFDEF forth}
-  VForth,
-{$ENDIF}
   Windows;
 
 const
@@ -22,44 +18,60 @@ type
   IEceDocument = interface;
   IEceDocumentLoader = interface;
 
+  IEceAction = interface;
+  IEceUiConteiner = Interface;
+  IEceUiItem = Interface;
+
   IEceApplication = interface
     function _GetHandle: HWND; safecall;
     function _GetDocumentsCount: integer; safecall;
     function _GetDocuments(AIndex: integer; var ADocument: IEceDocument)
       : integer; safecall;
     procedure _UpdateCaption; safecall;
-{$IFDEF forth}
-    function GetMachine: IVForthMachine; stdcall;
-    function GetModule: IVForthModule; stdcall;
-{$ENDIF}
-    procedure _FocusToActiveDocument; stdcall;
+    procedure _FocusToActiveDocument; safecall;
+    procedure _About; safecall;
     // Для работы с плагинами
     // Регистрация нового "просмотрщика" документов
-    procedure RegisterDocument(Doc: IEceDocumentLoader); stdcall;
-    procedure RegisterDocumentEx(Doc: IEceDocumentLoader; ext:string); stdcall;
+    procedure RegisterDocument(Doc: IEceDocumentLoader); safecall;
+    procedure RegisterDocumentEx(Doc: IEceDocumentLoader; ext:string); safecall;
+  end;
+
+  IEceAction = interface
+    procedure AddLink(Ui : IEceUiItem); safecall;
+    procedure RemoveLink(Ui : IEceUiItem); safecall;
+  end;
+
+  IEceUiConteiner = Interface
+
+  end;
+
+  IEceUiItem = Interface
+    function GetAction: IEceAction; safecall;
+    procedure SetAction(const Value: IEceAction); safecall;
+    procedure UpdateState; safecall;
   end;
 
   IEceDocument = interface
-    function UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL; stdcall;
+    function UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL; safecall;
     function _GetHandle: HWND; safecall;
     procedure _BeginUpdate; safecall;
     procedure _EndUpdate; safecall;
-    procedure _SetFocus; stdcall;
-    procedure _KillFocus; stdcall;
-    function GetFileName : string; stdcall;
-    procedure _LoadFromFile(Const filename : string); stdcall;
-    procedure _Show; stdcall;
-    procedure _Hide; stdcall;
-    procedure _SetViewRect(left, top, right, bottom : Integer); stdcall;
-    procedure _SetParent(Parent : HWND); stdcall;
+    procedure _SetFocus; safecall;
+    procedure _KillFocus; safecall;
+    function GetFileName : string; safecall;
+    procedure _LoadFromFile(Const filename : string); safecall;
+    procedure _Show; safecall;
+    procedure _Hide; safecall;
+    procedure _SetViewRect(left, top, right, bottom : Integer); safecall;
+    procedure _SetParent(Parent : HWND); safecall;
   end;
 
   IEceDocumentLoader = interface
-    function GetName: string; stdcall;
-    function GetTitle: string; stdcall;
-    function CheckDocument(AApp : IEceApplication; AFileName : string) : Boolean; stdcall;
+    function GetName: string; safecall;
+    function GetTitle: string; safecall;
+    function CheckDocument(AApp : IEceApplication; AFileName : string) : Boolean; safecall;
     function CreateDocument(AApp : IEceApplication; AFileName: string; var IDoc: IEceDocument;
-      var ErrResult: string): Boolean; stdcall;
+      var ErrResult: string): Boolean; safecall;
   end;
 
   IEceLine = interface;

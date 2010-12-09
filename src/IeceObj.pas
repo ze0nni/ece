@@ -98,7 +98,7 @@ var
   Er: TPropArr absolute ArgErr;
 begin
   try
-    Result := InvokeName(DispID, IID, LocaleID, Flags, P, R, E, Er)
+    Result := InvokeName(DispID, IID, LocaleID, Flags, P, R, E, Er);
     // Ну, пока так, а причину эксепшенов надо выяснить
       except on E: EEditorException
     do raise Exception.Create(E.Message);
