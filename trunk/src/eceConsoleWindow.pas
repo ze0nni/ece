@@ -3,8 +3,6 @@ unit eceConsoleWindow;
 
 interface
 
-{$I EceLanguage.inc}
-
 uses
   Windows,
   SysUtils,
@@ -12,49 +10,19 @@ uses
   Messages,
   EditorWindow,
   IEce,
-{$IFDEF forth}
-  VForth,
-  VForthMachine,
-  VForthVariants,
-  VForthVariantInteger,
-  VForthVariantFloat,
-  VForthVariantNatural,
-  VForthVariantComplex,
-  VForthVariantString,
-  VForthModuleSystem,
-  VForthAthom,
-  VForthModuleIo,
-  VForthModuleMath,
-  VForthModuleLogic,
-  VForthModule,
-  VForthModuleDateTime,
-  VForthVariantArray,
-  VForthModuleDialogs,
-  VForthModuleWin32;
-{$ELSE}
-MsAsKernel;
-{$ENDIF}
+  MsAsKernel;
 
 type
   TEceConsoleCaret = class;
 
-  TEceConsoleWindow = class(TEceEditorWindow {$IFDEF forth}, IVForthIO {$ENDIF})
+  TEceConsoleWindow = class(TEceEditorWindow)
   private
     FApplication: IEceApplication;
-{$IFDEF forth}
-    FVForthMachine: IVForthMachine;
-{$ELSE}
     FIfopKernel: TKernel;
-{$ENDIF}
     FScriptSource: string;
     FHistory: TStringList;
     FHistoryIndex: Integer;
   protected
-{$IFDEF forth}
-    function StdIn: string; stdcall;
-    procedure StdOut(str: string); stdcall;
-    procedure StdErr(str: string); stdcall;
-{$ENDIF}
     function CreateCaret: TCaret; override;
     function CreateLine: TLine; override;
     procedure wmChar(var msg: TWmChar);
@@ -62,15 +30,11 @@ type
     procedure wmKeyDown(var msg: TWMKeyDown);
     message WM_KEYDOWN;
   protected
-    procedure LoadStdScript;
   public
     Constructor Create(Parent: Cardinal; AApplication: IEceApplication);
+    procedure LoadStdScript;
     Destructor Destroy; override;
-{$IFDEF forth}
-    property Machine: IVForthMachine read FVForthMachine;
-{$ELSE}
     property Kernal: TKernel read FIfopKernel;
-{$ENDIF}
   end;
 
   TEceConsoleCaret = class(TCaret)
@@ -132,10 +96,8 @@ begin
     Ls.Text := AText;
     for i := 0 to Ls.Count - 1 do
     begin
-{$IFNDEF forth}
       Line := TConsoleLine(con.AddLine);
       Line.LineType := t;
-{$ENDIF}
       OutputLine(Ls[i]);
     end;
   finally
@@ -155,36 +117,11 @@ end;
 
 constructor TEceConsoleWindow.Create(Parent: Cardinal;
   AApplication: IEceApplication);
-{$IFDEF forth}
-var
-  AppModule: IVForthModule;
-{$ENDIF}
 begin
   inherited;
   FApplication := AApplication;
-{$IFDEF forth}
-//  FVForthMachine := CreateVForthMachine;
-  FVForthMachine := TVForthMachine.Create;
-  FVForthMachine._AddRef;
-  { DONE -oOnni -cGeneral : Решение проблемы выелета при выходе их приложения }
-  FVForthMachine._AddRef;
-
-  FVForthMachine.SetIo(Self);
-  FVForthMachine.LoadModule(TVForthModuleSystem.Create);
-  FVForthMachine.LoadModule(TVForthModuleIo.Create);
-  FVForthMachine.LoadModule(TVForthModuleMath.Create);
-  FVForthMachine.LoadModule(TVForthModuleLogic.Create);
-  FVForthMachine.LoadModule(TVForthModuleDateTIme.Create);
-  FVForthMachine.LoadModule(TVForthModuleWin32.Create);
-  FVForthMachine.LoadModule(AApplication.GetModule);
-  FVForthMachine.LoadModule(TVForthModuleDialogs.Create);
-{$ELSE}
   FIfopKernel := TKernel.Create;
-{$ENDIF}
   FHistory := TStringList.Create;
-  LoadStdScript;
-  // FIfopKernel.SetStdOut(Self, @StdOutProc);
-  // FIfopKernel.SetStdErr(Self, @StdErrProc);
 end;
 
 function TEceConsoleWindow.CreateCaret: TCaret;
@@ -199,11 +136,7 @@ end;
 
 destructor TEceConsoleWindow.Destroy;
 begin
-{$IFDEF forth}
-  FVForthMachine := nil;
-{$ELSE}
   FIfopKernel.Free;
-{$ENDIF}
   FHistory.Free;
   inherited;
 end;
@@ -215,19 +148,9 @@ begin
   try
     l := TStringList.Create;
     try
-{$IFDEF forth}
-      FScriptSource := ExtractFilePath(ParamStr(0)) + 'script\main.f';
-{$ELSE}
       FScriptSource := ExtractFilePath(ParamStr(0)) + 'script\main.vbs';
-{$ENDIF}
       l.LoadFromFile(FScriptSource);
-{$IFDEF forth}
-      { TODO -oOnni -cGeneral : После модификации перестал работать с могосрочным текстом? }
-      FVForthMachine.AddCode(StringReplace(l.Text, #13#10, #32, [rfReplaceAll])
-        );
-{$ELSE}
       FIfopKernel.AddCode(l.Text);
-{$ENDIF}
     finally
       l.Free;
     end;
@@ -237,23 +160,6 @@ begin
         MB_ICONERROR);
   end;
 end;
-{$IFDEF forth}
-
-procedure TEceConsoleWindow.StdErr(str: string);
-begin
-  StdErrProc(Self, str, false);
-end;
-
-function TEceConsoleWindow.StdIn: string;
-begin
-
-end;
-
-procedure TEceConsoleWindow.StdOut(str: string);
-begin
-  StdOutProc(Self, str, false);
-end;
-{$ENDIF}
 
 procedure TEceConsoleWindow.wmChar(var msg: TWmChar);
 var
@@ -276,11 +182,7 @@ begin
             end;
 
             str := Strings[Count - 1];
-{$IFDEF forth}
-            FVForthMachine.AddCode(str);
-{$ELSE}
             FIfopKernel.AddCode(str);
-{$ENDIF}
 {$REGION 'История'}
             index := FHistory.IndexOf(str);
             if index <> -1 then

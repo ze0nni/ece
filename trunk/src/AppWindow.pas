@@ -3,18 +3,14 @@ unit AppWindow;
 
 interface
 
-{$I EceLanguage.inc}
-
 uses
-{$IFDEF forth}
-  VForth,
-{$ENDIF}
   Windows,
   Messages,
   Classes,
   SysUtils,
   ActiveX,
   CommCtrl,
+  Variants,
   // zeError,
   zeWndControls,
   zePages,
@@ -39,10 +35,12 @@ type
 
   end;
 
-  TEceAppWindow = class(TzeWndControl, IEceApplication, IDispatch
-{$IFDEF forth}, IVForthModule {$ENDIF})
+  TEceAction = class;
+
+  TEceAppWindow = class(TzeWndControl, IEceApplication, IDispatch)
   protected
     FConsole: TEceConsoleWindow;
+    FActions: TInterfaceList;
     FDocuments: TInterfaceList;
     FPages: TPages;
     FActiveDocument: Integer;
@@ -54,14 +52,13 @@ type
     // Модули
     FDocTypes: TInterfaceList;
     FDocTypesEx: TStringList;
-{$IFDEF forth}
-    FModuleProp: TStringList;
-{$ENDIF}
     procedure CreateParams(var Param: CreateStruct); override;
     procedure wmSize(var msg: TWMSize);
     message WM_SIZE;
     procedure wmSetFocus(var msg: TWmSetFocus);
     message WM_SETFOCUS;
+    procedure wmKillFocus(var msg: TWMKillFocus);
+    message WM_KILLFOCUS;
 
     procedure wmDestroy(var msg: TWMDestroy);
     message WM_DESTROY;
@@ -79,25 +76,14 @@ type
     function GetActiveDocumentWindow: IEceDocument;
     procedure AppendMenu(AName, AAction, EnableTest, VisibleTest,
       Image: string);
-{$IFDEF forth}
-    function GetModule: IVForthModule; stdcall;
-    function GetMachine: IVForthMachine; stdcall;
-    procedure SetProp(AProp, AValue: string); stdcall;
-    function GetProp(AProp: string): string; stdcall;
-    procedure Register(AMachine: IVForthMachine); stdcall;
-    // Функция в зависимости от того, есть звездочка на конце слова или нет
-    // Возвращает активный документ или документ, номер которого в вершине стека
-    function GetDoc(AMachine: IVForthMachine; const Word: string): IEceDocument;
-    function GetEditor(AMachine: IVForthMachine; const Word: string)
-      : IEceEditor;
-{$ENDIF}
   protected
     function _GetHandle: HWND; safecall;
     function _GetDocumentsCount: Integer; safecall;
     function _GetDocuments(AIndex: Integer; var ADocument: IEceDocument)
       : Integer; safecall;
-    procedure _FocusToActiveDocument; stdcall;
+    procedure _FocusToActiveDocument; safecall;
     procedure _UpdateCaption; safecall;
+    procedure _About; safecall;
   private
     function GethMenu(APath: string; var MenuName: string): HMENU;
     function GetDocTypeIndex(AFileName: string): Integer;
@@ -116,6 +102,7 @@ type
     function CloseAllDocuments: boolean;
 
     function LoadPlugin(AFileName: string): boolean;
+    constructor InitActions;
 
     property DocumentsCount: Integer read GetDocumentsCount;
     property Documents[const index: Integer]: IEceDocument read GetDocuments;
@@ -125,8 +112,37 @@ type
     property Console: TEceConsoleWindow read FConsole;
     // Модули
     function CreateDocument(AFileName: string): IEceDocument;
-    procedure RegisterDocument(Doc: IEceDocumentLoader); stdcall;
-    procedure RegisterDocumentEx(Doc: IEceDocumentLoader; ext: string); stdcall;
+    procedure RegisterDocument(Doc: IEceDocumentLoader); safecall;
+    procedure RegisterDocumentEx(Doc: IEceDocumentLoader; ext: string);
+      safecall;
+  end;
+
+  TEceAction = class(TEceInterfacedObject, IDispatch, IEceAction)
+  private
+    FApplication: TEceAppWindow;
+    FItems: TInterfaceList;
+    FHint: string;
+    FText: string;
+    FName: string;
+    procedure SetHint(const value: string);
+    procedure SetText(const value: string);
+    procedure SetName(const value: string);
+
+    procedure UpdateItems;
+  protected
+    function InvokeName(DispID: Integer; const IID: TGUID; LocaleID: Integer;
+      Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
+      : HResult; override;
+
+    procedure AddLink(Ui: IEceUiItem); safecall;
+    procedure RemoveLink(Ui: IEceUiItem); safecall;
+  public
+    Constructor Create(App: TEceAppWindow; AName, AText, AHint: string);
+    Destructor Destroy; override;
+
+    property Name: string read FName write SetName;
+    property Text: string read FText write SetText;
+    property Hint: string read FHint write SetHint;
   end;
 
 var
@@ -134,34 +150,48 @@ var
 
 implementation
 
-{$IFDEF forth}
-
 uses
   EditorWindow,
-  VForthAthom;
-{$ELSE}
+  EceAppUI;
 
-uses
-  EditorWindow;
-{$ENDIF}
+Function AboutDlgProc(wnd: HWND; msg: LRESULT; WParam: WParam; LParam: LParam)
+  : boolean; stdcall;
+var
+  ctrl: HWND;
+  ps: TPaintStruct;
+  rgn: HRGN;
+begin
+  case msg of
+    WM_INITDIALOG:
+      begin
+        SetWindowPos(wnd, 0, (GetSystemMetrics(SM_CXSCREEN) - 320) div 2,
+          (GetSystemMetrics(SM_CYSCREEN) - 200) div 2, 320, 200, 0);
+        ctrl := CreateWindow('static', 'ECELOGO',
+          WS_VISIBLE or WS_CHILD or SS_BITMAP, 0, 0, 320, 200, wnd, 0,
+          HInstance, nil);
 
-const
-  PROP_TITLE = 0;
-  PROP_LEFT = 1;
-  PROP_TOP = 2;
-  PROP_WIDTH = 3;
-  PROP_HEIGHT = 4;
+        ctrl := CreateWindow('Edit',
+          'Easy Code Editor v0.1'#13#10 + ''#13#10 + ''#13#10 + ''#13#10 +
+            ''#13#10 + ''#13#10 + ''#13#10 + '(c) Балагодарев Е.С. 2010',
+          WS_VISIBLE or WS_CHILD or ES_MULTILINE or ES_CENTER or ES_AUTOVSCROLL
+            or ES_READONLY, 5, 63, 320 - 5 * 2, 200 - 5 - 63, wnd, 0,
+          HInstance, nil);
 
-  PROP_STDIN = 5;
-  PROP_STDOUT = 6;
-  PROP_STDERR = 7;
+        exit(true);
+      end;
+    WM_LBUTTONUP, WM_RBUTTONUP, WM_MBUTTONUP:
+      begin
+        EndDialog(wnd, 0)
+      end
+    else
+      exit(false)
+  end;
+end;
 
-  PROP_QUIT = 8;
-
-  PROP_DOCOMENTSCOUNT = 9;
-  PROP_DOCUMENTS = 10;
-  PROP_ACTIVEDOCUMENTINDEX = 11;
-  PROP_ACTIVEDOCUMENT = 12;
+procedure TEceAppWindow._About;
+begin
+  DialogBox(HInstance, 'ECEABOUTDIALOG', Handle, @AboutDlgProc);
+end;
 
 procedure TEceAppWindow._FocusToActiveDocument;
 begin
@@ -227,9 +257,18 @@ end;
 procedure TEceAppWindow.wmSetFocus(var msg: TWmSetFocus);
 begin
   inherited;
-  if ActiveDocumentWindow = nil then
-    exit;
+  AllocConsole;Writeln('SETFOCUS');
+  if ActiveDocumentWindow <> nil then
   ActiveDocumentWindow._SetFocus;
+end;
+
+procedure TEceAppWindow.wmKillFocus(var msg: TWMKillFocus);
+begin
+  inherited;
+  AllocConsole;Writeln('KILLFOCUS');
+  if ActiveDocumentWindow <> nil then
+    ActiveDocumentWindow._KillFocus;
+
 end;
 
 procedure TEceAppWindow.wmCommand(var msg: TWMCommand);
@@ -250,7 +289,7 @@ begin
   mi := Pointer(mif.dwItemData);
   if mi <> nil then
     try
-      FConsole.Machine.AddCode(mi^.Action);
+      // FConsole.Machine.AddCode(mi^.Action);
     except
       on e: Exception do
         MessageBox(Handle, PChar(format('%s: %s', [e.ClassName, e.Message])),
@@ -266,7 +305,7 @@ end;
 
 procedure TEceAppWindow.wmMeasureItem(var msg: TWMMeasureItem);
 var
-  dc: HDC;
+  dc: hdc;
 begin
   { TODO -oOnni -cGeneral : WM_MEASUREITEM не проходит }
   if msg.MeasureItemStruct^.itemHeight < 18 then
@@ -276,21 +315,79 @@ end;
 
 procedure TEceAppWindow.wmDrawItem(var msg: TWMDrawItem);
 var
-  dc: HDC;
+  dc: hdc;
 begin
 
 end;
+
+Constructor TEceAppWindow.InitActions;
+var
+  act: TEceAction;
+begin
+  // File.New
+  act := TEceAction.Create(Self, 'Ece.File.New', 'New...', 'New');
+  FActions.Add(act);
+  // File.Open
+  act := TEceAction.Create(Self, 'Ece.File.Open', 'Open...', 'Open');
+  FActions.Add(act);
+  // File.Save
+  act := TEceAction.Create(Self, 'Ece.File.Save', 'Save', 'Save');
+  FActions.Add(act);
+  // File.SaveAs
+  act := TEceAction.Create(Self, 'Ece.File.SaveAs', 'Save as...', 'Save as');
+  FActions.Add(act);
+  // File.Close
+  act := TEceAction.Create(Self, 'Ece.File.Close', 'Close', 'Close');
+  FActions.Add(act);
+  // File.Print
+  act := TEceAction.Create(Self, 'Ece.File.Print', 'Print...', 'Print');
+  FActions.Add(act);
+  // File.Exit
+  act := TEceAction.Create(Self, 'Ece.File.Exit', 'Exit', 'Exit');
+  FActions.Add(act);
+end;
+
+const
+  PROP_TITLE = 0;
+  PROP_LEFT = 1;
+  PROP_TOP = 2;
+  PROP_WIDTH = 3;
+  PROP_HEIGHT = 4;
+
+  PROP_STDIN = 5;
+  PROP_STDOUT = 6;
+  PROP_STDERR = 7;
+
+  PROP_QUIT = 8;
+
+  PROP_DOCOMENTSCOUNT = 9;
+  PROP_DOCUMENTS = 10;
+  PROP_ACTIVEDOCUMENTINDEX = 11;
+  PROP_ACTIVEDOCUMENT = 12;
+
+  PROP_ACTIONS = 13;
+  PROP_ACTIONS_COUNT = 14;
+  PROP_NEWACTION = 15;
+  PROP_DELETE_ACTION = 16;
+
+  PROP_MENU = 17;
+  PROP_TOOLBAR = 18;
+
+  PROP_ABOUT = 19;
 
 Constructor TEceAppWindow.Create(AParent: Cardinal);
 var
   Menu: HMENU;
 begin
   inherited;
-{$IFDEF forth}
+
+  // Глобальная переменная
   GlApp := Self;
+  FActions := TInterfaceList.Create;
+
   Menu := CreateMenu;
   SetMenu(Handle, Menu);
-{$ENDIF}
+
   FMenus := TStringList.Create;
 
   // ToolBAr
@@ -311,11 +408,9 @@ begin
 
   end;
   FConsole.Caret.Style := csClassic;
-{$IFDEF forth}
-  FModuleProp := TStringList.Create;
-{$ELSE}
+
   FConsole.Kernal.AddObject('Application', Self);
-{$ENDIF}
+
   RegisterName('Title', PROP_TITLE);
   RegisterName('Left', PROP_LEFT);
   RegisterName('Top', PROP_TOP);
@@ -334,10 +429,25 @@ begin
   RegisterName('ActiveDocumentIndex', PROP_ACTIVEDOCUMENTINDEX);
   RegisterName('ActiveDocument', PROP_ACTIVEDOCUMENT);
 
+  RegisterName('Actions', PROP_ACTIONS);
+  RegisterName('ActionsCount', PROP_ACTIONS_COUNT);
+  RegisterName('NewAction', PROP_NEWACTION);
+  RegisterName('DeleteAction', PROP_DELETE_ACTION);
+
+  RegisterName('MainMenu', PROP_MENU);
+  RegisterName('ToolBar', PROP_TOOLBAR);
+
+  RegisterName('About', PROP_ABOUT);
+
   FDocTypes := TInterfaceList.Create;
   FDocTypesEx := TStringList.Create;
 
   UpdateCaption;
+
+  // Создаем базовые события
+  InitActions;
+  // Запускаем скрипты
+  FConsole.LoadStdScript;
 end;
 
 function TEceAppWindow.GetDocLoaderIndexByName(Name: string): Integer;
@@ -417,10 +527,10 @@ begin
   begin
     FDocTypesEx.Free;
   end;
-{$IFDEF forth}
-  if Assigned(FModuleProp) then
-    FModuleProp.Free;
-{$ENDIF}
+  if Assigned(FActions) then
+  begin
+    FActions.Free;
+  end;
   inherited;
 end;
 
@@ -497,7 +607,7 @@ end;
 
 procedure ClearBitmap(hbmp: HBITMAP);
 var
-  cdc: HDC;
+  cdc: hdc;
   i: Integer;
   j: Integer;
   c: Integer;
@@ -592,18 +702,6 @@ function TEceAppWindow.GetDocumentsCount: Integer;
 begin
   Result := FDocuments.Count;
 end;
-{$IFDEF forth}
-
-function TEceAppWindow.GetModule: IVForthModule;
-begin
-  Result := Self;
-end;
-
-function TEceAppWindow.GetMachine: IVForthMachine;
-begin
-  Result := FConsole.Machine;
-end;
-{$ENDIF}
 
 function TEceAppWindow.InvokeName(DispID: Integer; const IID: TGUID;
   LocaleID: Integer; Flags: Word; Params: TPropArr; var VarResult, ExcepInfo,
@@ -698,14 +796,16 @@ begin
 {$ENDREGION}
 {$REGION 'Documents'}
     PROP_DOCUMENTS:
-      case Flags of
-        DISPATCH_GET:
-          begin
-            n := Params[0];
-            VarResult[0] := Documents[n] as IDispatch;
-          end
-        else
-          exit(DISP_E_MEMBERNOTFOUND)
+      begin
+        case Flags of
+          DISPATCH_GET:
+            begin
+              n := Params[0];
+              VarResult[0] := Documents[n] as IDispatch;
+            end
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
+        end;
       end;
 {$ENDREGION}
 {$REGION 'ActiveDocumentIndex'}
@@ -730,8 +830,116 @@ begin
           exit(DISP_E_MEMBERNOTFOUND)
       end;
 {$ENDREGION}
+{$REGION 'Actions'}
+    PROP_ACTIONS:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            begin
+              { TODO -oOnni -cGeneral : Сделать вохможность доступа по имени,
+                а не только по индексу }
+              n := Params[0];
+              VarResult[0] := FActions[n] as IDispatch;
+            end
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
+        end;
+        Result := S_OK;
+      end;
+{$ENDREGION}
+{$REGION 'ActionsCount'}
+    PROP_ACTIONS_COUNT:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            begin
+              VarResult[0] := FActions.Count;
+            end
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
+        end;
+        Result := S_OK;
+      end;
+{$ENDREGION}
+{$REGION 'ActionsCount'}
+    PROP_NEWACTION:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            begin
+              n := FActions.Add
+                (TEceAction.Create(Self, Params[0], Params[1], Params[2]));
+              VarResult[0] := FActions[n] as IDispatch
+            end
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
+        end;
+        Result := S_OK;
+      end;
+{$ENDREGION}
+{$REGION 'DeleteAction'}
+    PROP_DELETE_ACTION:
+      begin
+        case Flags of
+          DISPATCH_METHOD:
+            begin
+              { TODO -oOnni -cGeneral : Сделать вохможность доступа по имени,
+                а не только по индексу }
+              n := Params[0];
+              FActions.Delete(n);
+            end
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
+        end;
+        Result := S_OK;
+      end;
+{$ENDREGION}
+{$REGION 'Main menu'}
+    PROP_MENU:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            begin
+
+            end
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
+        end;
+        Result := S_OK;
+      end;
+{$ENDREGION}
+{$REGION 'ToolBar'}
+    PROP_TOOLBAR:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            begin
+              // todo
+            end
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
+        end;
+        Result := S_OK;
+      end;
+{$ENDREGION}
+{$REGION 'About'}
+    PROP_ABOUT:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            VarResult[0] := Title;
+          DISPATCH_SUB:
+            begin
+              _About;
+            end
+          else
+            exit(DISP_E_MEMBERNOTFOUND)
+        end;
+      end;
+{$ENDREGION}
+  else
+    Result := DISP_E_MEMBERNOTFOUND;
   end;
-  Result := S_OK;
 {$ENDIF}
 end;
 
@@ -742,45 +950,28 @@ var
   LoadProc: PGetPlugin;
   Plugin: IEcePlugin;
 begin
+
   hPlugin := LoadLibrary(PChar(AFileName));
   if hPlugin = 0 then
     raise Exception.Create('Не удалось загрузить модуль ' + AFileName);
 
-  LoadProc := GetProcAddress(hPlugin, 'GetPlugin');
-  if @LoadProc = nil then
-  begin
-    FreeLibrary(hPlugin);
-    raise Exception.Create('GetPlugin не найден в таблице экспорта модуля ' +
-        AFileName);
+  try
+    LoadProc := GetProcAddress(hPlugin, 'GetPlugin');
+    if @LoadProc = nil then
+    begin
+      FreeLibrary(hPlugin);
+      raise Exception.CreateFmt(
+        'Метод GetPlugin не найден в таблице экспорта модуля %s', [AFileName]);
+    end;
+
+    Plugin := LoadProc;
+    Plugin.Load(Self);
+  except
+    on e: Exception do
+      raise Exception.CreateFmt('Ошибка "%s: %s" при загрузке модуля "%s"',
+        [e.ToString, e.Message, AFileName]);
   end;
-
-  Plugin := LoadProc;
-  Plugin.Load(Self);
 end;
-{$IFDEF forth}
-
-function TEceAppWindow.GetDoc(AMachine: IVForthMachine; const Word: string)
-  : IEceDocument;
-begin
-  if Word[Length(Word)] <> '*' then
-    Result := ActiveDocumentWindow
-  else
-    Result := Documents[AMachine.PopInt];
-end;
-
-function TEceAppWindow.GetEditor(AMachine: IVForthMachine; const Word: string)
-  : IEceEditor;
-var
-  Doc: IEceDocument;
-begin
-  if Word[Length(Word)] <> '*' then
-    Doc := ActiveDocumentWindow
-  else
-    Doc := Documents[AMachine.PopInt];
-  if Doc.QueryInterface(IIdEceEditor, Result) <> S_OK then
-    raise EEceApplicationException.CreateFmt('Не удалось преобразовать "%s" к %s.', [Doc.GetFileName, GUIDToString(IIdEceEditor)]);
-end;
-{$ENDIF}
 
 function TEceAppWindow.GetDocuments(const index: Integer): IEceDocument;
 begin
@@ -801,315 +992,6 @@ begin
   SendMessage(Handle, WM_SIZE, 0, 0);
   UpdateCaption;
 end;
-{$IFDEF forth}
-
-procedure TEceAppWindow.SetProp(AProp, AValue: string);
-begin
-  FModuleProp.Values[AProp] := AValue;
-end;
-
-function TEceAppWindow.GetProp(AProp: string): string;
-begin
-  Result := FModuleProp.Values[AProp]
-end;
-{$ENDIF}
-{$REGION 'APP'}
-{$IFDEF forth}
-
-procedure efGetAppTitle(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  AMachine.PushString(GlApp.Title);
-end;
-
-procedure efSetAppTitle(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  GlApp.Title := AMachine.PopString;
-end;
-
-procedure efAppClose(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  SendMessage(GlApp.Handle, WM_SYSCOMMAND, SC_CLOSE, 0)
-end;
-
-procedure efAppQuit(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  PostQuitMessage(0);
-end;
-
-procedure efAppNewDocument(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  GlApp.NewDocument(AMachine.PopString);
-  GlApp.ActiveDocument := GlApp.DocumentsCount - 1;
-  //GlApp.Documents[GlApp.ActiveDocument]._SetFocus;
-end;
-{$ENDIF}
-{$ENDREGION}
-{$REGION 'Doc'}
-{$IFDEF forth}
-
-procedure efGetDocsCount(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  AMachine.PushInt(GlApp.DocumentsCount);
-end;
-
-procedure efGetDocFileName(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  AMachine.PushString(GlApp.GetDoc(AMachine, PAthomStr).GetFileName);
-end;
-
-procedure efGetDocTitle(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  { TODO -oOnni -cGeneral : TITLE }
-  AMachine.PushString(GlApp.GetDoc(AMachine, PAthomStr).GetFileName);
-end;
-
-procedure efSetDocTitle(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  { TODO -oOnni -cGeneral : TITLE }
-  // GlApp.GetDoc(AMachine, PAthomStr).Title := AMachine.PopString;
-end;
-{$ENDIF}
-{$ENDREGION}
-{$REGION 'Editor'}
-{$IFDEF forth}
-{ TODO -oOnni -cGeneral : переделать все что касается работы с редактором }
-
-procedure efGetEditorLinesCount(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._GetLinesCount);
-end;
-
-procedure efGetEditorLineText(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  AMachine.PushString(GlApp.GetEditor(AMachine, PAthomStr)._GetLines
-      (AMachine.PopInt)._GetText);
-end;
-
-procedure efSetEditorLineText(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-var
-  s: String;
-  l: Integer;
-begin
-  l := AMachine.PopInt;
-  s := AMachine.PopString;
-  GlApp.GetEditor(AMachine, PAthomStr)._GetLines(l)._SetText(s);
-end;
-
-procedure efInvalidateEditor(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  GlApp.GetEditor(AMachine, PAthomStr)._Invalidate;
-end;
-
-procedure efInvalidateEditorLine(AMachine: IVForthMachine;
-  AAthom: IVForthAthom; PAthomStr: PWideChar); stdcall;
-begin
-  GlApp.GetEditor(AMachine, PAthomStr)._InvalidateLine(AMachine.PopInt);
-end;
-
-procedure efAddEditorLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._AddLine._GetIndex);
-end;
-
-procedure efAddEditorLineText(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  with GlApp.GetEditor(AMachine, PAthomStr)._AddLine do
-  begin
-    _SetText(AMachine.PopString);
-    AMachine.PushInt(_GetIndex);
-  end;
-end;
-
-procedure efInsertEditorLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  GlApp.GetEditor(AMachine, PAthomStr)._InsertLine(AMachine.PopInt)
-end;
-
-procedure efInsertEditorLineText(AMachine: IVForthMachine;
-  AAthom: IVForthAthom; PAthomStr: PWideChar); stdcall;
-begin
-  GlApp.GetEditor(AMachine, PAthomStr)._InsertLine(AMachine.PopInt)._SetText
-    (AMachine.PopString)
-  // GlApp.GetEditor(AMachine, PAthomStr).InsertLine(AMachine.PopInt)
-  // .Text := AMachine.PopString
-end;
-
-procedure efDeleteEditorLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-var
-  e: IEceDocument;
-begin
-  // e := GlApp.GetEditor(AMachine, PAthomStr);
-  // if e.Count = 1 then
-  // // Первую строчку удалять ну ни как нельзя
-  // e.Strings[0] := ''
-  // else
-  //
-  // e.DeleteLine(AMachine.PopInt);
-  GlApp.GetEditor(AMachine, PAthomStr)._DeleteLine(AMachine.PopInt);
-end;
-
-// caret
-
-procedure efGetEditorCaretX(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._GetX);
-end;
-
-procedure efGetEditorCaretY(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._GetY);
-end;
-
-procedure efGetEditorCaretLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  AMachine.PushInt(GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._GetLine);
-end;
-
-procedure efSetEditorCaretX(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._SetX(AMachine.PopInt);
-end;
-
-procedure efSetEditorCaretY(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  GlApp.GetEditor(AMachine, PAthomStr)._GetCaret._SetY(AMachine.PopInt);
-end;
-
-procedure efSetEditorCaretLine(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  { TODO -oOnni -cGeneral : Line только для чтения }
-  // GlApp.GetEditor(AMachine, PAthomStr).Caret.Line := AMachine.PopInt;
-  AMachine.StdErr('Readonly property');
-end;
-
-procedure efEditorInsert(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-var
-  e: IEceEditor;
-  c: ICaret;
-  s: string;
-begin
-  e := GlApp.GetEditor(AMachine, PAthomStr);
-  c := e._GetCaret;
-  s := AMachine.PopString;
-  e._GetLines(c._GetLine)._Insert(s, c._GetX + 1);
-  c._SetX(c._GetX + Length(s));
-end;
-
-procedure efEditorInsertXY(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-var
-  e: IEceEditor;
-  l, c: Integer;
-begin
-   e := GlApp.GetEditor(AMachine, PAthomStr);
-   l := AMachine.PopInt;
-   c := AMachine.PopInt;
-   e._GetLines(l)._Insert(AMachine.PopString, c + 1);
-end;
-
-procedure efEditorOwerwrite(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  { TODO -oOnni -cGeneral : Owerwrite }
-end;
-
-procedure efEditorOwerwriteXY(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-begin
-  { TODO -oOnni -cGeneral : OwerwriteXY }
-end;
-{$ENDIF}
-{$ENDREGION}
-{$REGION 'Menu'}
-
-procedure efAddEceMenuItem(AMachine: IVForthMachine; AAthom: IVForthAthom;
-  PAthomStr: PWideChar); stdcall;
-var
-  vName, vAction, vEnable, vVisible, vImage: IVForthVariant;
-begin
-  vName := AMachine.Pop;
-  vAction := AMachine.Pop;
-  vEnable := AMachine.Pop;
-  vVisible := AMachine.Pop;
-  vImage := AMachine.Pop;
-  GlApp.AppendMenu(vName.StringValue, vAction.StringValue, vEnable.StringValue,
-    vVisible.StringValue, vImage.StringValue);
-end;
-{$ENDREGION}
-{$IFDEF forth}
-
-procedure TEceAppWindow.Register(AMachine: IVForthMachine);
-  procedure AddAthom(name: string; proc: PVForthSystemAthomProc; Ex: boolean);
-  begin
-    AMachine.AddAthom(CreateVForthSystemAthom(name, Self, proc));
-    if Ex then
-      AMachine.AddAthom(CreateVForthSystemAthom(name + '*', Self, proc));
-  end;
-
-begin
-  // APP
-  AddAthom('GetAppTitle', efGetAppTitle, false);
-  AddAthom('SetAppTitle', efSetAppTitle, false);
-  AddAthom('AppClose', efAppClose, false);
-  AddAthom('AppQuit', efAppQuit, false);
-  AddAthom('AppNewDocument', efAppNewDocument, false);
-  // DOC
-  AddAthom('GetDocsCount', efGetDocsCount, false);
-  AddAthom('GetDocFileName', efGetDocFileName, true);
-  AddAthom('GetDocTitle', efGetDocTitle, true);
-  AddAthom('SetDocTitle', efSetDocTitle, true);
-  // Editor
-  AddAthom('GetEditorLinesCount', efGetEditorLinesCount, true);
-  AddAthom('GetEditorLine', efGetEditorLineText, true);
-  AddAthom('SetEditorLine', efSetEditorLineText, true);
-  AddAthom('InvalidateEditor', efInvalidateEditor, true);
-  AddAthom('InvalidateEditorLine', efInvalidateEditorLine, true);
-
-  AddAthom('AddEditorLine', efAddEditorLine, true);
-  AddAthom('AddEditorLineText', efAddEditorLineText, true);
-  AddAthom('InsertEditorLine', efInsertEditorLine, true);
-  AddAthom('InsertEditorLineText', efInsertEditorLineText, true);
-  AddAthom('DeleteEditorLine', efDeleteEditorLine, true);
-
-  AddAthom('GetEditorCaretX', efGetEditorCaretX, true);
-  AddAthom('GetEditorCaretY', efGetEditorCaretY, true);
-  AddAthom('GetEditorCaretLine', efGetEditorCaretLine, true);
-  AddAthom('SetEditorCaretX', efSetEditorCaretX, true);
-  AddAthom('SetEditorCaretY', efSetEditorCaretY, true);
-  AddAthom('SetEditorCaretLine', efSetEditorCaretLine, true);
-
-  AddAthom('EditorInsert', efEditorInsert, true);
-  AddAthom('EditorInsertXY', efEditorInsertXY, true);
-  AddAthom('EditorOwerwrite', efEditorOwerwrite, true);
-  AddAthom('EditorOwerwriteXY', efEditorOwerwriteXY, true);
-
-  AddAthom('AddEceMenuItem', efAddEceMenuItem, true);
-end;
-{$ENDIF}
 
 procedure TEceAppWindow.UpdateCaption;
 var
@@ -1134,6 +1016,138 @@ begin
     Result := nil
   else
     Result := Documents[ActiveDocument];
+end;
+
+{ TEceAction }
+
+const
+  PROP_ACTION_NAME = 1;
+  PROP_ACTION_TEXT = 2;
+  PROP_ACTION_HINT = 3;
+  // PROP_ACTION_IMAGE = 4;
+  PROP_ACTION_ENABLE = 5;
+  PROP_ACTION_VISIBLE = 6;
+  PROP_ACTION_CHECKED = 7;
+
+constructor TEceAction.Create(App: TEceAppWindow; AName, AText, AHint: string);
+begin
+  FApplication := App;
+  FItems := TInterfaceList.Create;
+
+  FName := AName;
+  Text := AText;
+  Hint := AHint;
+
+  RegisterName('Name', PROP_ACTION_NAME);
+  RegisterName('Text', PROP_ACTION_TEXT);
+  RegisterName('Hint', PROP_ACTION_HINT);
+  // RegisterName('Image', PROP_ACTION_IMAGE);
+  RegisterName('Enable', PROP_ACTION_ENABLE);
+  RegisterName('Visible', PROP_ACTION_VISIBLE);
+  RegisterName('Checked', PROP_ACTION_CHECKED);
+end;
+
+destructor TEceAction.Destroy;
+begin
+  if Assigned(FItems) then
+  begin
+    FItems.Free;
+  end;
+  inherited;
+end;
+
+function TEceAction.InvokeName(DispID: Integer; const IID: TGUID;
+  LocaleID: Integer; Flags: Word; Params: TPropArr; var VarResult, ExcepInfo,
+  ArgErr: TPropArr): HResult;
+begin
+  case DispID of
+{$REGION 'Name'}
+    PROP_ACTION_NAME:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            VarResult[0] := Name;
+          DISPATCH_SET:
+            Name := Params[0];
+        else
+          exit(DISP_E_MEMBERNOTFOUND)
+        end;
+      end;
+{$ENDREGION}
+{$REGION 'Text'}
+    PROP_ACTION_TEXT:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            VarResult[0] := Text;
+          DISPATCH_SET:
+            Text := Params[0];
+        else
+          exit(DISP_E_MEMBERNOTFOUND)
+        end;
+      end;
+{$ENDREGION}
+{$REGION 'Hint'}
+    PROP_ACTION_HINT:
+      begin
+        case Flags of
+          DISPATCH_GET:
+            VarResult[0] := Hint;
+          DISPATCH_SET:
+            Hint := Params[0];
+        else
+          exit(DISP_E_MEMBERNOTFOUND)
+        end;
+      end;
+{$ENDREGION}
+  else
+    Result := DISP_E_MEMBERNOTFOUND;
+  end;
+end;
+
+procedure TEceAction.AddLink(Ui: IEceUiItem);
+var
+  Index: Integer;
+begin
+  Index := FItems.IndexOf(Ui as IInterface);
+  if Index = -1 then
+    FItems.Add(Ui)
+end;
+
+procedure TEceAction.RemoveLink(Ui: IEceUiItem);
+var
+  Index: Integer;
+begin
+  Index := FItems.IndexOf(Ui as IInterface);
+  if Index <> -1 then
+    FItems.Delete(Index);
+end;
+
+procedure TEceAction.SetHint(const value: string);
+begin
+  FHint := value;
+  UpdateItems;
+end;
+
+procedure TEceAction.SetName(const value: string);
+begin
+  FName := value;
+end;
+
+procedure TEceAction.SetText(const value: string);
+begin
+  FText := value;
+  UpdateItems;
+end;
+
+procedure TEceAction.UpdateItems;
+var
+  i: Integer;
+begin
+  for i := 0 to FItems.Count - 1 do
+  begin
+    IEceUiItem(FItems[i]).UpdateState;
+  end;
 end;
 
 initialization

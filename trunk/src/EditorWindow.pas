@@ -10,7 +10,6 @@
 unit EditorWindow;
 // test comments line
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
-{$I EceLanguage.inc}
 
 interface
 
@@ -61,12 +60,12 @@ type
   end;
 
   TEceEditorLoader = class(TInterfacedObject, IEceDocumentLoader)
-    function GetName: string; stdcall;
-    function GetTitle: string; stdcall;
+    function GetName: string; safecall;
+    function GetTitle: string; safecall;
     function CreateDocument(AApp: IEceApplication; AFileName: string;
-      var IDoc: IEceDocument; var ErrResult: string): Boolean; stdcall;
+      var IDoc: IEceDocument; var ErrResult: string): Boolean; safecall;
     function CheckDocument(AApp: IEceApplication; AFileName: string): Boolean;
-      stdcall;
+      safecall;
   end;
 
   TEceEditorWindow = class(TEceDocumentWindow, IEceDocument, IEceEditor,
@@ -115,9 +114,9 @@ type
   protected
     procedure _BeginUpdate; override; safecall;
     procedure _EndUpdate; override; safecall;
-    procedure _SetFocus; override; stdcall;
-    procedure _KillFocus; override; stdcall;
-    procedure _LoadFromFile(Const filename: string); override; stdcall;
+    procedure _SetFocus; override; safecall;
+    procedure _KillFocus; override; safecall;
+    procedure _LoadFromFile(Const filename: string); override; safecall;
 
     function GetDocumentTitle: string; override;
     function GetFileName: string; override;
@@ -189,7 +188,7 @@ type
     Destructor Destroy; override;
 
     function UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL; override;
-      stdcall;
+      safecall;
 
     /// <summary>Устанавливем заданный шрифт заданного размера</summary>
     procedure SetFont(AFont: String; Size: integer);
@@ -253,13 +252,13 @@ type
 
   TGutter = class(TEceInterfacedObject, IGutter)
   private
-    FSize: Cardinal;
+    FSize: integer;
     FEditor: TEceEditorWindow;
-    Function GetSize: Cardinal;
+    Function GetSize: integer;
   public
     Constructor Create(AEditor: TEceEditorWindow);
     Procedure Draw(DC: HDC; Rt: TRect);
-    Property Size: Cardinal read GetSize;
+    Property Size: integer read GetSize;
   end;
 
   // Показатель того, как выделена строка
@@ -421,7 +420,7 @@ type
   TSelectionRange = record
     selStart: TPoint;
     selEnd: TPoint;
-    {$IFNDEF fpc}function InRange(Line: integer): Boolean;{$ENDIF}
+{$IFNDEF fpc} function InRange(Line: integer): Boolean; {$ENDIF}
   end;
 
   TCaret = class(TEceInterfacedObject, ICaret, IDispatch)
@@ -509,10 +508,8 @@ var
   Ps: TPaintStruct;
   Rt: TRect;
   CDC: HDC;
-  LineStart, LineEnd, i, j, lleft: integer;
-  LineTop, LineLen: integer;
+  LineStart, LineEnd, i: integer;
   LineO: TLine;
-  Line: Pchar;
   Brush: HBrush;
   ClipRgn: HRGN;
 begin
@@ -539,7 +536,7 @@ begin
   if LineEnd > FVisibleLines.Count - 1 then
     LineEnd := Count - 1;
 
-  LineTop := 0;
+//  LineTop := 0;
   Rt := EditorRect;
   Rt.Bottom := CharHeight;
   for i := LineStart to LineEnd do
@@ -549,7 +546,7 @@ begin
     LineO := TLine(FVisibleLines[i]);
     if LineO = nil then
       continue;
-    lleft := Rt.Left;
+//    lleft := Rt.Left;
     LineO.Draw(CDC, Rt.Left, Rt.Top, OffsetX);
     OffsetRect(Rt, 0, CharHeight);
   end;
@@ -857,9 +854,9 @@ var
 begin
 {$IFDEF fpc}
 {$ELSE}
+  l := TStringList.Create;
   try
     BeginUpdate;
-    l := TStringList.Create;
     l.Text := Clipboard.AsText;
     for i := 0 to l.Count - 1 do
     begin
@@ -979,9 +976,6 @@ begin
 end;
 
 procedure TEceEditorWindow.wmMouseMove(var msg: TWMMouseMove);
-var
-  Rt: TRect;
-  pt: TPoint;
 begin
   case State of
     esEdit:
@@ -1523,15 +1517,11 @@ begin
 end;
 
 function TEceEditorWindow.AddLine: TLine;
-var
-  index: integer;
 begin
   Result := InsertLine(FLines.Count);
 end;
 
 function TEceEditorWindow.InsertLine(AIndex: integer): TLine;
-var
-  vIndex: integer;
 begin
   Result := CreateLine;
   try
@@ -1660,7 +1650,6 @@ procedure TEceEditorWindow.SetOffsetX(const value: integer);
 var
   OffS: integer;
   Rt: TRect;
-  CDC: HDC;
 begin
 
   if FOffsetX = value then
@@ -1885,7 +1874,7 @@ begin
   SelectObject(DC, Font);
 end;
 
-Function TGutter.GetSize: Cardinal;
+Function TGutter.GetSize: integer;
 begin
   { todo: ширина гуттера - все символы + 2 на бордюр + 1 смвол на кнопку "Свернуть" }
   Result := 2 + FEditor.CharWidth + (GetDecCound(FEditor.FLines.Count))
@@ -2123,9 +2112,9 @@ var
   c: TCaret;
 begin
   c := FEditor.Caret;
-  {$IFNDEF fpc}
+{$IFNDEF fpc}
   Result := (c.HaveSelection) and (c.SelectionRange.InRange(LineIndex));
-  {$ENDIF}
+{$ENDIF}
 end;
 
 Procedure TLine.SetIsRollUp(const value: Boolean);
@@ -2485,7 +2474,6 @@ var
 begin
   if Editor.FUpdateLockCount > 0 then
     exit;
-
   if Fx < 0 then
     Fx := 0;
   if Fy < 0 then
@@ -2508,7 +2496,7 @@ begin
       OffsetY := Fy - CharsInHeight + 1;
   end;
   // Выделяем или нет
-  // TODO: При знятии выделения, нужно обновить все ранее выделенные строки
+  // TODO: При снятии выделения, нужно обновить все ранее выделенные строки
   if not SelectionMode then
   begin
     FSelStartX := Fx;
@@ -2655,8 +2643,8 @@ destructor TTokenClassList.Destroy;
 begin
   if Assigned(FTokens) then
   begin
-    Clear;
-    FTokens.Free;
+     //todo: Clear();
+      FTokens.Free;
   end;
   inherited;
 end;
@@ -2735,9 +2723,11 @@ end;
 
 { TSelectionRange }
 {$IFNDEF fpc}
+
 function TSelectionRange.InRange(Line: integer): Boolean;
 begin
   Result := (selStart.Y >= Line) and (selEnd.Y <= Line);
 end;
 {$ENDIF}
+
 end.

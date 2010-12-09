@@ -27,22 +27,22 @@ type
   protected
     procedure _BeginUpdate; virtual; safecall;
     procedure _EndUpdate; virtual; safecall;
-    procedure _SetFocus; virtual; stdcall;
-    procedure _KillFocus; virtual; stdcall;
+    procedure _SetFocus; virtual; safecall;
+    procedure _KillFocus; virtual; safecall;
     function GetDocumentFileName: string; virtual;
-    function GetDocumentTitle: string; virtual; stdcall;
-    function GetFileName : string; virtual; stdcall;
-    procedure _LoadFromFile(Const filename : string);virtual; stdcall;
-    procedure _Show;virtual; stdcall;
-    procedure _Hide;virtual; stdcall;
-    procedure _SetViewRect(left, top, right, bottom : Integer);virtual; stdcall;
-    procedure _SetParent(Parent : HWND);virtual; stdcall;
+    function GetDocumentTitle: string; virtual; safecall;
+    function GetFileName : string; virtual; safecall;
+    procedure _LoadFromFile(Const filename : string);virtual; safecall;
+    procedure _Show;virtual; safecall;
+    procedure _Hide;virtual; safecall;
+    procedure _SetViewRect(left, top, right, bottom : Integer);virtual; safecall;
+    procedure _SetParent(Parent : HWND);virtual; safecall;
   public
     Constructor Create(Parent: Cardinal; AApplication: IEceApplication);
     Destructor Destroy; override;
 
     function UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL; virtual;
-      stdcall;
+      safecall;
     property DocumentTitle: string read GetDocumentTitle;
     property DocumentFileName: string read GetDocumentFileName;
     procedure LoadFromFile(AFileName: String); virtual;

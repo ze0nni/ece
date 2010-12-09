@@ -18,13 +18,14 @@ type
 
   TDocumentLoader = class(TInterfacedObject, IEceDocumentLoader)
   public
-    function GetName: string; stdcall;
-    function GetTitle: string; stdcall;
+    function GetName: string; safecall;
+    function GetTitle: string; safecall;
     function CreateDocument(App: IEceApplication; AFileName: string;
-      var IDoc: IEceDocument; var ErrResult: string): boolean; stdcall;
+      var IDoc: IEceDocument; var ErrResult: string): boolean; safecall;
+        function CheckDocument(AApp : IEceApplication; AFileName : string) : Boolean; safecall;
   end;
 
-function GetPlugin: IEcePlugin; stdcall;
+function GetPlugin: IEcePlugin; safecall;
 begin
   Result := TPlugin.Create;
 end;
@@ -56,10 +57,16 @@ end;
 
 { TDocumentLoader }
 
+function TDocumentLoader.CheckDocument(AApp: IEceApplication;
+  AFileName: string): Boolean;
+begin
+  result := AFileName = 'startpage:start'
+end;
+
 function TDocumentLoader.CreateDocument(App: IEceApplication;
   AFileName: string; var IDoc: IEceDocument; var ErrResult: string): boolean;
 begin
-  IDoc := TStartPageDoc.Create;
+  IDoc := TStartPageDoc.Create(App._GetHandle);
   Result := true;
 end;
 

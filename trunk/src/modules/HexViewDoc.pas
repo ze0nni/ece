@@ -11,20 +11,20 @@ type
   private
     FHandle : HWND;
   protected
-    function UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL; stdcall;
+    function UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL; safecall;
     function _GetHandle: HWND; safecall;
     procedure _BeginUpdate; safecall;
     procedure _EndUpdate; safecall;
-    procedure _SetFocus; stdcall;
-    procedure _KillFocus; stdcall;
-    function GetFileName : string; stdcall;
+    procedure _SetFocus; safecall;
+    procedure _KillFocus; safecall;
+    function GetFileName : string; safecall;
 
-    procedure _LoadFromFile(Const filename : string); stdcall;
+    procedure _LoadFromFile(Const filename : string); safecall;
 
-    procedure _Show; stdcall;
-    procedure _Hide; stdcall;
-    procedure _SetViewRect(left, top, right, bottom : Integer); stdcall;
-    procedure _SetParent(Parent : HWND); stdcall;
+    procedure _Show; safecall;
+    procedure _Hide; safecall;
+    procedure _SetViewRect(left, top, right, bottom : Integer); safecall;
+    procedure _SetParent(Parent : HWND); safecall;
   public
     constructor Create(parent : HWND);
     destructor Destroy; override;
