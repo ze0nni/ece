@@ -1,0 +1,96 @@
+﻿	<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+		<PropertyGroup>
+			<ProjectGuid>{57BE42AE-360A-4CE5-BD3C-9876C211E069}</ProjectGuid>
+		</PropertyGroup>
+		<ItemGroup>
+			<Projects Include="ece.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="VForth\src\VForthCmd.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="eceshex.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="modules\hexview.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="modules\startpage.dproj">
+				<Dependencies/>
+			</Projects>
+			<Projects Include="modules\pdfview.dproj">
+				<Dependencies/>
+			</Projects>
+		</ItemGroup>
+		<ProjectExtensions>
+			<Borland.Personality>Default.Personality.12</Borland.Personality>
+			<Borland.ProjectType/>
+			<BorlandProject>
+				<Default.Personality/>
+			</BorlandProject>
+		</ProjectExtensions>
+		<Target Name="ece">
+			<MSBuild Projects="ece.dproj"/>
+		</Target>
+		<Target Name="ece:Clean">
+			<MSBuild Targets="Clean" Projects="ece.dproj"/>
+		</Target>
+		<Target Name="ece:Make">
+			<MSBuild Targets="Make" Projects="ece.dproj"/>
+		</Target>
+		<Target Name="VForthCmd">
+			<MSBuild Projects="VForth\src\VForthCmd.dproj"/>
+		</Target>
+		<Target Name="VForthCmd:Clean">
+			<MSBuild Targets="Clean" Projects="VForth\src\VForthCmd.dproj"/>
+		</Target>
+		<Target Name="VForthCmd:Make">
+			<MSBuild Targets="Make" Projects="VForth\src\VForthCmd.dproj"/>
+		</Target>
+		<Target Name="eceshex">
+			<MSBuild Projects="eceshex.dproj"/>
+		</Target>
+		<Target Name="eceshex:Clean">
+			<MSBuild Targets="Clean" Projects="eceshex.dproj"/>
+		</Target>
+		<Target Name="eceshex:Make">
+			<MSBuild Targets="Make" Projects="eceshex.dproj"/>
+		</Target>
+		<Target Name="hexview">
+			<MSBuild Projects="modules\hexview.dproj"/>
+		</Target>
+		<Target Name="hexview:Clean">
+			<MSBuild Targets="Clean" Projects="modules\hexview.dproj"/>
+		</Target>
+		<Target Name="hexview:Make">
+			<MSBuild Targets="Make" Projects="modules\hexview.dproj"/>
+		</Target>
+		<Target Name="startpage">
+			<MSBuild Projects="modules\startpage.dproj"/>
+		</Target>
+		<Target Name="startpage:Clean">
+			<MSBuild Targets="Clean" Projects="modules\startpage.dproj"/>
+		</Target>
+		<Target Name="startpage:Make">
+			<MSBuild Targets="Make" Projects="modules\startpage.dproj"/>
+		</Target>
+		<Target Name="pdfview">
+			<MSBuild Projects="modules\pdfview.dproj"/>
+		</Target>
+		<Target Name="pdfview:Clean">
+			<MSBuild Targets="Clean" Projects="modules\pdfview.dproj"/>
+		</Target>
+		<Target Name="pdfview:Make">
+			<MSBuild Targets="Make" Projects="modules\pdfview.dproj"/>
+		</Target>
+		<Target Name="Build">
+			<CallTarget Targets="ece;VForthCmd;eceshex;hexview;startpage;pdfview"/>
+		</Target>
+		<Target Name="Clean">
+			<CallTarget Targets="ece:Clean;VForthCmd:Clean;eceshex:Clean;hexview:Clean;startpage:Clean;pdfview:Clean"/>
+		</Target>
+		<Target Name="Make">
+			<CallTarget Targets="ece:Make;VForthCmd:Make;eceshex:Make;hexview:Make;startpage:Make;pdfview:Make"/>
+		</Target>
+		<Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+	</Project>
