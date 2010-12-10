@@ -12,6 +12,7 @@ Program Ece;
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
 // {$R _source\ece.res}
 // {$R _source\Dialogs.res}
+{$R _source\24.res}
 {$R *.dres}
 
 uses
@@ -41,7 +42,7 @@ var
 
 begin
 {$IFNDEF FPC}
-//ReportMemoryLeaksOnShutdown := true;
+  // ReportMemoryLeaksOnShutdown := true;
 {$ENDIF}
   // RegisterShellMenu;
   App := TEceAppWindow.Create(0);
@@ -49,15 +50,19 @@ begin
     // todo: Кривая иконка
     SendMessage(App.Handle, WM_SETICON, ICON_SMALL, LoadIcon
         (HInstance, 'appicon'));
+    SendMessage(App.Handle, WM_SETICON, ICON_SMALL2, LoadIcon
+        (HInstance, 'appicon'));
+    SendMessage(App.Handle, WM_SETICON, ICON_BIG, LoadIcon(HInstance, 'appicon')
+      );
 
     // Грузим модули
     // App.LoadPlugin('modules\startpage.dll');  //Стартовая страница
     App.RegisterDocument(TEceEditorLoader.Create); // Окно редактора
 {$IFNDEF FPC}
-//    App.LoadPlugin(ExtractFilePath(ParamStr(0)) + 'modules\hexview.dll');
-//    // Модуль просмотра HEX
-//    App.LoadPlugin(ExtractFilePath(ParamStr(0)) + 'modules\pdfview.dll');
-//    // Модуль просмотра PDF
+    // App.LoadPlugin(ExtractFilePath(ParamStr(0)) + 'modules\hexview.dll');
+    // // Модуль просмотра HEX
+    // App.LoadPlugin(ExtractFilePath(ParamStr(0)) + 'modules\pdfview.dll');
+    // // Модуль просмотра PDF
 {$ENDIF}
     App.NewDocument(ParamStr(1));
     App.ActiveDocument := 0;

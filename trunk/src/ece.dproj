@@ -2,7 +2,7 @@
 		<PropertyGroup>
 			<ProjectGuid>{5533C9C1-271E-4BBD-BD0D-56B7CDAF3E23}</ProjectGuid>
 			<MainSource>ece.dpr</MainSource>
-			<Config Condition="'$(Config)'==''">Release</Config>
+			<Config Condition="'$(Config)'==''">Debug</Config>
 			<DCC_DCCCompiler>DCC32</DCC_DCCCompiler>
 			<ProjectVersion>12.0</ProjectVersion>
 		</PropertyGroup>
@@ -68,6 +68,10 @@
 			</RcItem>
 			<None Include="..\bin\script\main.f"/>
 			<None Include="..\bin\script\main.vbs"/>
+			<RcItem Include="_source\toolbar.bmp">
+				<ResourceType>Bitmap</ResourceType>
+				<ResourceId>ECETOOLBAR</ResourceId>
+			</RcItem>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
 			</BuildConfiguration>

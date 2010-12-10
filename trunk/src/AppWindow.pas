@@ -46,8 +46,7 @@ type
     FActiveDocument: Integer;
     FMenus: TStringList;
     FMenuID: Word;
-    FImageId: Word;
-    FToolBar: HWND;
+    FToolBar: IEceUiConteiner;
     FImgList: HIMAGELIST;
     // Модули
     FDocTypes: TInterfaceList;
@@ -55,10 +54,8 @@ type
     procedure CreateParams(var Param: CreateStruct); override;
     procedure wmSize(var msg: TWMSize);
     message WM_SIZE;
-    procedure wmSetFocus(var msg: TWmSetFocus);
-    message WM_SETFOCUS;
-    procedure wmKillFocus(var msg: TWMKillFocus);
-    message WM_KILLFOCUS;
+    procedure wmActivate(var msg: TWMActivate);
+    message WM_ACTIVATE;
 
     procedure wmDestroy(var msg: TWMDestroy);
     message WM_DESTROY;
@@ -74,8 +71,6 @@ type
     function GetDocuments(const index: Integer): IEceDocument;
     procedure SetActiveDocument(const value: Integer);
     function GetActiveDocumentWindow: IEceDocument;
-    procedure AppendMenu(AName, AAction, EnableTest, VisibleTest,
-      Image: string);
   protected
     function _GetHandle: HWND; safecall;
     function _GetDocumentsCount: Integer; safecall;
@@ -103,6 +98,7 @@ type
 
     function LoadPlugin(AFileName: string): boolean;
     constructor InitActions;
+    constructor InitToolBar;
 
     property DocumentsCount: Integer read GetDocumentsCount;
     property Documents[const index: Integer]: IEceDocument read GetDocuments;
@@ -166,17 +162,8 @@ begin
       begin
         SetWindowPos(wnd, 0, (GetSystemMetrics(SM_CXSCREEN) - 320) div 2,
           (GetSystemMetrics(SM_CYSCREEN) - 200) div 2, 320, 200, 0);
-        ctrl := CreateWindow('static', 'ECELOGO',
-          WS_VISIBLE or WS_CHILD or SS_BITMAP, 0, 0, 320, 200, wnd, 0,
-          HInstance, nil);
-
-        ctrl := CreateWindow('Edit',
-          'Easy Code Editor v0.1'#13#10 + ''#13#10 + ''#13#10 + ''#13#10 +
-            ''#13#10 + ''#13#10 + ''#13#10 + '(c) Балагодарев Е.С. 2010',
-          WS_VISIBLE or WS_CHILD or ES_MULTILINE or ES_CENTER or ES_AUTOVSCROLL
-            or ES_READONLY, 5, 63, 320 - 5 * 2, 200 - 5 - 63, wnd, 0,
-          HInstance, nil);
-
+        CreateWindow('static', 'ECELOGO', WS_VISIBLE or WS_CHILD or SS_BITMAP,
+          0, 0, 320, 200, wnd, 0, HInstance, nil);
         exit(true);
       end;
     WM_LBUTTONUP, WM_RBUTTONUP, WM_MBUTTONUP:
@@ -239,11 +226,10 @@ begin
   if ActiveDocumentWindow = nil then
     exit;
   GetClientRect(Handle, rt);
-  GetClientRect(FToolBar, tbRect);
+  tbRect := Rect(0, 0, FToolBar.GetWidth, FToolBar.GetHeight);
   // SetWindowPos(FToolBar, 0, 0, 0, tbRect.Bottom, rt.Right,
   // SWP_NOMOVE or SWP_NOACTIVATE);
-  SendMessage(FToolBar, TB_AUTOSIZE, 0, 0);
-
+  FToolBar.ParentResize;
   SetWindowPos(FPages.Handle, 0, 0, tbRect.Bottom, rt.Right, 24,
     SWP_NOACTIVATE);
   // SetWindowPos(ActiveDocumentWindow._GetHandle, 0, 0, tbRect.Bottom + 24,
@@ -254,21 +240,21 @@ begin
     SWP_NOACTIVATE)
 end;
 
-procedure TEceAppWindow.wmSetFocus(var msg: TWmSetFocus);
+procedure TEceAppWindow.wmActivate(var msg: TWMActivate);
 begin
   inherited;
-  AllocConsole;Writeln('SETFOCUS');
-  if ActiveDocumentWindow <> nil then
-  ActiveDocumentWindow._SetFocus;
-end;
-
-procedure TEceAppWindow.wmKillFocus(var msg: TWMKillFocus);
-begin
-  inherited;
-  AllocConsole;Writeln('KILLFOCUS');
-  if ActiveDocumentWindow <> nil then
-    ActiveDocumentWindow._KillFocus;
-
+  case msg.Active of
+    0:
+      begin
+        if ActiveDocumentWindow <> nil then
+          ActiveDocumentWindow._KillFocus;
+      end
+    else
+    begin
+      if ActiveDocumentWindow <> nil then
+        ActiveDocumentWindow._SetFocus;
+    end;
+  end;
 end;
 
 procedure TEceAppWindow.wmCommand(var msg: TWMCommand);
@@ -345,6 +331,21 @@ begin
   // File.Exit
   act := TEceAction.Create(Self, 'Ece.File.Exit', 'Exit', 'Exit');
   FActions.Add(act);
+  //=================================================================
+  // File.Exit
+  act := TEceAction.Create(Self, 'Ece.File.Exit', 'Exit', 'Exit');
+  FActions.Add(act);
+  // File.Exit
+  act := TEceAction.Create(Self, 'Ece.File.Exit', 'Exit', 'Exit');
+  FActions.Add(act);
+end;
+
+Constructor TEceAppWindow.InitToolBar;
+var
+  i: Integer;
+begin
+  for i := 0 to FActions.Count - 1 do
+  FToolBar.AddActionItem(IEceAction(FActions[i]), 0);
 end;
 
 const
@@ -378,6 +379,7 @@ const
 Constructor TEceAppWindow.Create(AParent: Cardinal);
 var
   Menu: HMENU;
+  TooBmp: HBitmap;
 begin
   inherited;
 
@@ -386,16 +388,27 @@ begin
   FActions := TInterfaceList.Create;
 
   Menu := CreateMenu;
+
   SetMenu(Handle, Menu);
+  AppendMenu(Menu, MF_STRING, 0, 'File');
+  AppendMenu(Menu, MF_STRING, 0, 'Edit');
+  AppendMenu(Menu, MF_STRING, 0, 'View');
+  AppendMenu(Menu, MF_STRING, 0, 'Project');
+  AppendMenu(Menu, MF_STRING, 0, 'Run');
+  AppendMenu(Menu, MF_STRING, 0, 'Tools');
+  AppendMenu(Menu, MF_STRING, 0, 'Help');
 
   FMenus := TStringList.Create;
 
   // ToolBAr
-  FToolBar := CreateWindowEx(TBSTYLE_EX_DOUBLEBUFFER, TOOLBARCLASSNAME,
-    'ToolBar', WS_VISIBLE or WS_CHILD or TBSTYLE_TOOLTIPS OR TBSTYLE_FLAT, 0,
-    0, 0, 24, Handle, 0, HInstance, nil);
-  FImgList := ImageList_Create(16, 16, ILC_COLOR24, 0, 0);
-  SendMessage(FToolBar, TB_SETIMAGELIST, 0, FImgList);
+  FImgList := ImageList_Create(16, 16, ILC_COLOR24 or ILC_MASK, 0, 0);
+  TooBmp := LoadBitmap(HInstance, 'ECETOOLBAR');
+  ImageList_AddMasked(FImgList, TooBmp, $000000);
+  DeleteObject(TooBmp);
+
+  FToolBar := TEceToolBar.Create(Handle);
+
+  FToolBar.SetImageList(FImgList);
 
   FDocuments := TInterfaceList.Create;
   FPages := TPages.Create(Handle);
@@ -446,6 +459,8 @@ begin
 
   // Создаем базовые события
   InitActions;
+  // Создаем кнопки на панели и меню
+  InitToolBar;
   // Запускаем скрипты
   FConsole.LoadStdScript;
 end;
@@ -605,7 +620,7 @@ begin
   end;
 end;
 
-procedure ClearBitmap(hbmp: HBITMAP);
+procedure ClearBitmap(hbmp: HBitmap);
 var
   cdc: hdc;
   i: Integer;
@@ -624,72 +639,6 @@ begin
         SetPixel(cdc, i, j, cc);
     end;
   DeleteDC(cdc);
-end;
-
-procedure TEceAppWindow.AppendMenu(AName, AAction, EnableTest, VisibleTest,
-  Image: string);
-var
-  hbmp: HBITMAP;
-  Menu: HMENU;
-  MenuName: string;
-  m: HMENU;
-  mif: TMenuItemInfo;
-  mi: PMenuItem;
-  btn: TTBButton;
-begin
-  Menu := GethMenu(AName, MenuName);
-
-  inc(FMenuID); // Новый индекс
-
-  if MenuName <> '-' then
-  begin
-    Windows.AppendMenu(Menu, MF_STRING, FMenuID, PChar(MenuName));
-    hbmp := LoadImage(HInstance, PChar(Image), IMAGE_BITMAP, 0, 0,
-      LR_LOADFROMFILE or LR_LOADTRANSPARENT or LR_COLOR);
-
-    ClearBitmap(hbmp);
-
-    SetMenuItemBitmaps(Menu, FMenuID, MF_BYCOMMAND, hbmp, hbmp);
-
-    new(mi);
-    mi^.Handle := Menu;
-    mi^.ID := FMenuID;
-    mi^.Action := AAction;
-    mi^.EnableTest := EnableTest;
-    mi^.VisibleTest := VisibleTest;
-
-    ZeroMemory(@mif, SizeOf(mif));
-    mif.cbSize := SizeOf(mif);
-    mif.fMask := MIIM_DATA;
-    mif.dwItemData := Integer(mi);
-
-    SetMenuItemInfo(Menu, FMenuID, false, mif);
-
-    SendMessage(FToolBar, TB_BUTTONSTRUCTSIZE, SizeOf(btn), 0);
-    ZeroMemory(@btn, SizeOf(btn));
-
-    if hbmp <> 0 then
-    begin
-      ImageList_Add(FImgList, hbmp, 0);
-      btn.fsStyle := TBSTYLE_BUTTON;
-      btn.fsState := TBSTATE_ENABLED;
-      btn.idCommand := FMenuID;
-      btn.iBitmap := FImageId * 2;
-      SendMessage(FToolBar, TB_ADDBUTTONS, 1, Integer(@btn));
-      inc(FImageId);
-    end;
-  end
-  else
-  begin
-    Windows.AppendMenu(Menu, MF_SEPARATOR, FMenuID, nil);
-
-    SendMessage(FToolBar, TB_BUTTONSTRUCTSIZE, SizeOf(btn), 0);
-    ZeroMemory(@btn, SizeOf(btn));
-    btn.fsStyle := TBSTYLE_SEP;
-    SendMessage(FToolBar, TB_ADDBUTTONS, 1, Integer(@btn));
-  end;
-  m := GetMenu(Handle);
-
 end;
 
 function TEceAppWindow.CloseAllDocuments: boolean;
