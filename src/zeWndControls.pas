@@ -123,6 +123,7 @@ begin
   // PMsg.Pt : TPoint; ???
   // Далее находим Объект, которому оно принадлежит
   Obj := Pointer(GetProp(Wnd, WndClassObject));
+//  AllocConsole; Writeln(msg);
   // И шлем сообщение =)
   if Obj <> nil then
   begin

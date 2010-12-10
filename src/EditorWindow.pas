@@ -94,6 +94,8 @@ type
     FSyntaxParser: TEceSynParser;
     FState: TEceEditorState;
     FPanaramModeMousePt: TPoint; // Положение мыши при панарамировании
+
+    FBookMarks: array [Byte] of TLine;
 {$IFNDEF PanaramMode}
     FPanaramScrollInfo: TPoint; // Величина прокрутки
 {$ENDIF}
@@ -111,6 +113,8 @@ type
     procedure SetBackgroundColor(const value: integer);
     procedure SetTextColor(const value: integer);
     procedure SetState(const value: TEceEditorState);
+
+    procedure BookmarkLine(l: TLine; Index: Byte);
   protected
     procedure _BeginUpdate; override; safecall;
     procedure _EndUpdate; override; safecall;
@@ -286,6 +290,7 @@ type
     FisRollUp: Boolean;
     FLevel: integer;
     FSynState: TEceSynLineState;
+    FBookMark: Byte;
     Function GetText: String;
     Procedure SetText(const value: String);
     procedure SetVisible(const value: Boolean);
@@ -298,6 +303,8 @@ type
     function GetisEndInLevel: Boolean;
     procedure RestorStyle(DC: HDC);
     function GetIsSelection: Boolean;
+    function GetBookMark: Byte;
+    procedure SetBookMark(const value: Byte);
   protected
     { Список токенов }
     FTokens: TList;
@@ -329,6 +336,7 @@ type
     property Length: integer read GetLength;
     property isEndInLevel: Boolean read GetisEndInLevel;
     property Level: integer read FLevel;
+    property BookMark: Byte read GetBookMark write SetBookMark;
 
     property isSelection: Boolean read GetIsSelection;
   end;
@@ -536,7 +544,7 @@ begin
   if LineEnd > FVisibleLines.Count - 1 then
     LineEnd := Count - 1;
 
-//  LineTop := 0;
+  // LineTop := 0;
   Rt := EditorRect;
   Rt.Bottom := CharHeight;
   for i := LineStart to LineEnd do
@@ -546,7 +554,7 @@ begin
     LineO := TLine(FVisibleLines[i]);
     if LineO = nil then
       continue;
-//    lleft := Rt.Left;
+    // lleft := Rt.Left;
     LineO.Draw(CDC, Rt.Left, Rt.Top, OffsetX);
     OffsetRect(Rt, 0, CharHeight);
   end;
@@ -1082,8 +1090,8 @@ end;
 procedure TEceEditorWindow.SetFocus;
 begin
   Inherited;
-  Caret.Update;
   Caret.Show;
+  Caret.Update;
 end;
 
 procedure TEceEditorWindow.KillFocus;
@@ -1467,6 +1475,9 @@ function TEceEditorWindow.UseHotkey(ctrl, shift, alt: BOOL; key: Word): BOOL;
     Result := (ord(k) = key) and (c = ctrl) and (s = shift) and (a = alt);
   end;
 
+var
+  n: integer;
+
 begin
   Result := true;
   if Test('C') then
@@ -1484,6 +1495,18 @@ begin
   else if Test('Z') then
   begin
     SendMessage(Handle, WM_UNDO, 0, 0);
+  end
+  else if ((key in [ord('0') .. ord('9')]) and (ctrl) and (shift) and (not alt)
+    ) then
+  begin
+    Lines[Caret.Line].BookMark := key - ord('1') + 1
+  end
+  else if ((key in [ord('0') .. ord('9')]) and (ctrl) and (not shift) and
+      (not alt)) then
+  begin
+    n := key - ord('1') + 1;
+    if FBookMarks[n] <> nil then
+      Caret.Y := FBookMarks[n].LineIndex;
   end
   else
     Result := false;
@@ -1548,6 +1571,9 @@ begin
   { TODO -oOnni -cGeneral : Удалети строки происходит довольно долго }
   Line := Lines[index]; // Ни каких проверок. У вслучае чего-тут исключение
 
+  if Line.BookMark <> 0 then
+    Line.BookMark := 0; // Удаляем из закладок
+
   LIndex := FVisibleLines.IndexOf(Line);
   if LIndex <> -1 then
   begin
@@ -1565,6 +1591,36 @@ begin
   // Что бы на время обновления курсор изменялся
   if FUpdateLockCount = 1 then
     SendMessage(Handle, WM_SETCURSOR, 0, MakeWParam(1, 0));
+end;
+
+procedure TEceEditorWindow.BookmarkLine(l: TLine; Index: Byte);
+var
+  i: integer;
+begin
+  // Удаляем ссылки на себя
+  for i := 1 to 255 do
+  begin
+    if FBookMarks[i] = l then
+    begin
+      if i = Index then
+        exit
+      else
+        FBookMarks[i] := nil;
+    end;
+  end;
+  //
+  if index = 0 then
+    exit;
+
+  if FBookMarks[index] <> nil then
+  begin
+    try
+      FBookMarks[index].BookMark := 0;
+    except
+
+    end;
+  end;
+  FBookMarks[index] := l;
 end;
 
 Procedure TEceEditorWindow.EndUpdate;
@@ -1769,8 +1825,8 @@ var
   Brush: HBrush;
   Pen: HPen;
 
-  Font: HFont;
-  FontColor: Cardinal;
+  Font, MarkFont: HFont;
+  FontColor, TextTmpColor: Cardinal;
   bkMode: Cardinal;
   i: integer;
   LineO: TLine;
@@ -1817,8 +1873,7 @@ begin
 
     Text := Format(FormatStr, [LineNum + 1]);
     TextOut(DC, Rt.Left, i * FEditor.CharHeight, Pchar(Text), Length(Text));
-
-    { Тут типа +/- для сворачиваемых блоков }
+{$REGION 'Тут типа +/- для сворачиваемых блоков'}
     if LineO.isRollBlock then
     begin
       if LineO.isRollUp then
@@ -1866,6 +1921,28 @@ begin
         end;
       end;
     end;
+{$ENDREGION}
+{$REGION 'Рисуем Bookmarks'}
+    if LineO.BookMark <> 0 then
+    begin
+      MarkFont := SelectObject(DC, CreateFont(FEditor.CharWidth + 1,
+          FEditor.CharWidth + 1, 0, 0, 0, 0, 0, 0, DEFAULT_CHARSET, 0, 0,
+          DEFAULT_QUALITY, 0, 'Courier new'));
+      Pen := SelectObject(DC, CreatePen(PS_SOLID, 1, GetSysColor(COLOR_INFOBK))
+        );
+      Brush := SelectObject(DC, CreateSolidBrush(GetSysColor(COLOR_INFOBK)));
+      TextTmpColor := SetTextColor(DC, GetSysColor(COLOR_INFOTEXT));
+
+      Cx := Size - round(FEditor.CharWidth * 1.5) - 2;
+      Cy := (i + 1) * FEditor.CharHeight - FEditor.CharWidth;
+      RoundRect(DC, Cx, Cy, Cx + FEditor.CharWidth, Cy + FEditor.CharWidth,round(FEditor.CharWidth/4),round(FEditor.CharWidth/4));
+      TextOut(DC, Cx, Cy + 1, Pchar(IntToStr(LineO.BookMark)), 1);
+      DeleteObject(SelectObject(DC, MarkFont));
+      DeleteObject(SelectObject(DC, Brush));
+      DeleteObject(SelectObject(DC, Pen));
+      SetTextColor(DC, TextTmpColor);
+    end;
+{$ENDREGION}
   end;
 
   DeleteObject(SelectObject(DC, Pen));
@@ -2092,6 +2169,11 @@ begin
   Result := System.Length(FText);
 end;
 
+function TLine.GetBookMark: Byte;
+begin
+  Result := FBookMark;
+end;
+
 function TLine.GetisEndInLevel: Boolean;
 var
   Index: integer;
@@ -2115,6 +2197,17 @@ begin
 {$IFNDEF fpc}
   Result := (c.HaveSelection) and (c.SelectionRange.InRange(LineIndex));
 {$ENDIF}
+end;
+
+procedure TLine.SetBookMark(const value: Byte);
+begin
+  if FBookMark = value then
+    FBookMark := 0
+  else
+    FBookMark := value;
+  FEditor.BookmarkLine(Self, FBookMark);
+
+  Invalidate;
 end;
 
 Procedure TLine.SetIsRollUp(const value: Boolean);
@@ -2206,7 +2299,9 @@ begin
   if FEditor.FUpdateLockCount <> 0 then
     exit;
   GetClientRect(FEditor.Handle, Rt);
-  Rt.Left := FEditor.FGutter.Size;
+  // Rt.Left := FEditor.FGutter.Size;
+  // Гуттрер торе перерисовываем
+  Rt.Left := 0;
   Rt.Top := (VisibleIndex - FEditor.OffsetY) * FEditor.CharHeight;
   Rt.Bottom := Rt.Top + FEditor.CharHeight;
   InvalidateRect(FEditor.Handle, @Rt, false);
@@ -2361,7 +2456,11 @@ begin
   Fx := Ax;
   Fy := Ay;
   Update;
-  FEditor.Lines[Y].Invalidate;
+  try
+    FEditor.Lines[Y].Invalidate;
+  except
+
+  end;
 end;
 
 procedure TCaret.SetY(const value: integer);
@@ -2503,19 +2602,25 @@ begin
     FSelStartY := Fy;
   end;
   // Обновляем положения каретки
-  case Style of
-    csNormal:
-      begin
-        Cx := FEditor.FGutter.Size + (Fx - FEditor.OffsetX) * FEditor.CharWidth;
-        Cy := (Fy - FEditor.OffsetY) * FEditor.CharHeight;
-      end;
-    csClassic:
-      begin
-        Cx := FEditor.FGutter.Size + (Fx - FEditor.OffsetX) * FEditor.CharWidth;
-        Cy := (Fy - FEditor.OffsetY + 1) * FEditor.CharHeight - 2;
-      end;
+  // Только если в фокусе
+  if GetFocus = FEditor.Handle then
+  begin
+    case Style of
+      csNormal:
+        begin
+          Cx := FEditor.FGutter.Size + (Fx - FEditor.OffsetX)
+            * FEditor.CharWidth;
+          Cy := (Fy - FEditor.OffsetY) * FEditor.CharHeight;
+        end;
+      csClassic:
+        begin
+          Cx := FEditor.FGutter.Size + (Fx - FEditor.OffsetX)
+            * FEditor.CharWidth;
+          Cy := (Fy - FEditor.OffsetY + 1) * FEditor.CharHeight - 2;
+        end;
+    end;
+    SetCaretPos(Cx, Cy);
   end;
-  SetCaretPos(Cx, Cy);
 end;
 
 function TCaret._GetLine: integer;
@@ -2643,8 +2748,8 @@ destructor TTokenClassList.Destroy;
 begin
   if Assigned(FTokens) then
   begin
-     //todo: Clear();
-      FTokens.Free;
+    // todo: Clear();
+    FTokens.Free;
   end;
   inherited;
 end;

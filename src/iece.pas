@@ -42,7 +42,13 @@ type
   end;
 
   IEceUiConteiner = Interface
+    function GetWidth : integer; safecall;
+    function GetHeight : integer; safecall;
+    procedure ParentResize; safecall;
+    procedure AddActionItem(AItem : IEceAction; Flags : Word); safecall;
+    procedure InsertActionItem(Index : integer; AItem : IEceAction; Flags : Word); safecall;
 
+    procedure SetImageList(AImageList : Cardinal); safecall;
   end;
 
   IEceUiItem = Interface
