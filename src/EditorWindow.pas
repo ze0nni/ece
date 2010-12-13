@@ -2811,9 +2811,17 @@ end;
 function TEceEditorLoader.CreateDocument(AApp: IEceApplication;
   AFileName: string; var IDoc: IEceDocument; var ErrResult: string): Boolean;
 begin
+  try
   IDoc := TEceEditorWindow.Create(AApp._GetHandle, AApp);
   IDoc._LoadFromFile(AFileName);
   Result := true;
+  except
+    on e : Exception do
+    begin
+      ErrResult := e.Message;
+      Exit(false);
+    end;
+  end;
 end;
 
 function TEceEditorLoader.GetName: string;

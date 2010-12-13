@@ -12,7 +12,7 @@ Program Ece;
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
 // {$R _source\ece.res}
 // {$R _source\Dialogs.res}
-{$R _source\24.res}
+ {$R _source\24.res}
 {$R *.dres}
 
 uses
@@ -30,7 +30,8 @@ uses
   eceSynParser in 'eceSynParser.pas',
   eceConsoleWindow in 'eceConsoleWindow.pas',
   IeceObj in 'IeceObj.pas',
-  EceAppUI in 'EceAppUI.pas';
+  EceAppUI in 'EceAppUI.pas',
+  eceConfig in 'eceConfig.pas';
 
 // {$IFNDEF FPC},
 // RegisterContextMenu in 'RegisterContextMenu.pas'{$ENDIF};

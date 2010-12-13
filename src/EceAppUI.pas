@@ -16,21 +16,22 @@ uses
 type
   TEceUiContainer = class(TEceInterfacedObject, IDispatch, IEceUiConteiner)
   private
+    FApplication : IEceApplication;
     FItems: TInterfaceList;
-    FImageList : HIMAGELIST;
+    FImageList: HIMAGELIST;
   protected
     function GetWidth: integer; virtual; safecall; abstract;
     function GetHeight: integer; virtual; safecall; abstract;
     procedure ParentResize; virtual; safecall; abstract;
 
-    procedure SetImageList(AImageList : Cardinal); virtual; safecall;
+    procedure SetImageList(AImageList: Cardinal); virtual; safecall;
     procedure AddActionItem(AItem: IEceAction; Flags: Word); safecall;
     procedure InsertActionItem(Index: integer; AItem: IEceAction; Flags: Word);
       safecall;
-    procedure InsertItemAct(Index: integer; AItem: IEceAction; Flags: Word);
+    procedure _InsertItemAct(Index: integer; AItem: IEceAction; Flags: Word);
       virtual; abstract;
   public
-    Constructor Create(ParentWindow: hwnd);
+    Constructor Create(AApplication : IEceApplication; ParentWindow: hwnd);
     Destructor Destroy; override;
   end;
 
@@ -47,11 +48,18 @@ type
 
   TEceToolMenu = class(TEceUiContainer, IDispatch, IEceUiConteiner)
   private
+    FHandle: HMENU;
+    FMenus: TStringList;
+    function GethMenu(APath: string; var MenuName: string): HMENU;
   protected
-    procedure SetImageList(AImageList : Cardinal); override; safecall;
+    procedure SetImageList(AImageList: Cardinal); override; safecall;
+        procedure _InsertItemAct(Index: integer; AItem: IEceAction; Flags: Word); override;
   public
-    Constructor Create(ParentWindow: hwnd);
+    Constructor Create(AApplication : IEceApplication;ParentWindow: hwnd);
+    destructor Destroy; override;
   end;
+
+  TEceToolButton = class;
 
   TEceToolBar = class(TEceUiContainer, IDispatch, IEceUiConteiner)
   private
@@ -60,25 +68,42 @@ type
     function GetWidth: integer; override; safecall;
     function GetHeight: integer; override; safecall;
     procedure ParentResize; override; safecall;
-    procedure SetImageList(AImageList : Cardinal); override; safecall;
-    procedure InsertItemAct(Index: integer; AItem: IEceAction; Flags: Word);
+    procedure SetImageList(AImageList: Cardinal); override; safecall;
+    procedure _InsertItemAct(Index: integer; AItem: IEceAction; Flags: Word);
       override;
   public
-    Constructor Create(ParentWindow: hwnd);
+    Constructor Create(AApplication : IEceApplication; ParentWindow: hwnd);
+  end;
+
+  TEceToolButton = class(TEceUIItem, IDispatch, IEceUiItem)
+  protected
+    procedure UpdateState; override; safecall;
   end;
 
 implementation
 
-{ TEceUiContainer }
+type
+  PMenuItem = ^TMenuItem;
+
+  TMenuItem = record
+    Handle: HMENU;
+    ID: Word;
+    Action: string;
+    EnableTest: string;
+    VisibleTest: string;
+  end;
+
+  { TEceUiContainer }
 
 procedure TEceUiContainer.AddActionItem(AItem: IEceAction; Flags: Word);
 begin
   InsertActionItem(FItems.Count, AItem, Flags);
 end;
 
-constructor TEceUiContainer.Create(ParentWindow: hwnd);
+constructor TEceUiContainer.Create(AApplication : IEceApplication; ParentWindow: hwnd);
 begin
   inherited Create;
+  FApplication := AApplication;
   FItems := TInterfaceList.Create;
 end;
 
@@ -97,7 +122,7 @@ var
   btn: TTBButton;
 begin
   FItems.Insert(Index, AItem);
-  InsertItemAct(Index, AItem, Flags);
+  _InsertItemAct(Index, AItem, Flags);
 end;
 
 procedure TEceUiContainer.SetImageList(AImageList: Cardinal);
@@ -136,9 +161,12 @@ end;
 
 { TEceToolMenu }
 
-constructor TEceToolMenu.Create(ParentWindow: hwnd);
+constructor TEceToolMenu.Create(AApplication : IEceApplication; ParentWindow: hwnd);
 begin
-  inherited Create(ParentWindow);
+  inherited;
+  FHandle := CreateMenu;
+  SetMenu(ParentWindow, FHandle);
+  FMenus := TStringList.Create;
 end;
 
 procedure TEceToolMenu.SetImageList(AImageList: Cardinal);
@@ -147,80 +175,84 @@ begin
 
 end;
 
+procedure TEceToolMenu._InsertItemAct(Index: integer; AItem: IEceAction;
+  Flags: Word);
+var
+  MenuAddr: String;
+  MenuN : string;
+  NewMenu : HMENU;
+begin
+  MenuAddr := StringReplace(AItem.GetName, '.', '/', [rfReplaceAll]);
+  NewMenu := GethMenu(MenuAddr, MenuN);
+  AppendMenu(NewMenu, MF_STRING, AItem.GetID, Pchar(AItem.GetText));
+end;
+
+destructor TEceToolMenu.Destroy;
+begin
+  if Assigned(FMenus) then
+    FMenus.Free;
+  DestroyMenu(FHandle);
+  inherited;
+end;
+
+function TEceToolMenu.GethMenu(APath: string; var MenuName: string): HMENU;
+var
+  sl: TStringList;
+  i: integer;
+  Menu, PopUp: HMENU;
+  MenuPath: string;
+  index: integer;
+  mi: PMenuItem;
+  PLocalPath, PLocalString : String;
+begin
+  sl := TStringList.Create;
+  try
+    Menu := FHandle;
+    sl.Text := StringReplace(APath, '/', #13#10, [rfReplaceAll]);
+    PLocalPath := 'Ece.';
+    //done: Начинаем со "втророго" слеша
+    for i := 1 to sl.Count - 2 do
+    begin
+      MenuPath := MenuPath + sl[i] + '\';
+      PLocalPath := PLocalPath + sl[i];
+
+      index := FMenus.IndexOf(MenuPath);
+      if index = -1 then
+      begin
+        new(mi);
+
+        PopUp := CreatePopupMenu;
+        mi^.Handle := PopUp;
+        FMenus.AddObject(MenuPath, Tobject(mi));
+
+        PLocalString := FApplication._GetLocalisationString(PLocalPath + '.Text');
+        if PLocalString = '' then
+          PLocalString := sl[i];
+        Windows.AppendMenu(Menu, MF_POPUP, PopUp, PChar(PLocalString));
+      end
+      else
+      begin
+        mi := Pointer(FMenus.Objects[index]);
+        PopUp := mi^.Handle;
+      end;
+      Menu := PopUp;
+    end;
+  finally
+    MenuName := sl[sl.Count - 1];
+    sl.Free;
+    result := PopUp;
+  end;
+end;
+
 { TEceToolBar }
 
-constructor TEceToolBar.Create(ParentWindow: hwnd);
+constructor TEceToolBar.Create(AApplication : IEceApplication; ParentWindow: hwnd);
 begin
-  inherited Create(ParentWindow);
+  inherited;
   FToolBarWnd := CreateWindowEx(TBSTYLE_EX_DOUBLEBUFFER, TOOLBARCLASSNAME,
     'ToolBar', WS_VISIBLE or WS_CHILD or TBSTYLE_TOOLTIPS OR TBSTYLE_FLAT, 0,
     0, 0, 24, ParentWindow, 0, HInstance, nil);
 end;
-
-// procedure TEceAppWindow.AppendMenu(AName, AAction, EnableTest, VisibleTest,
-// Image: string);
-// var
-// hbmp: HBITMAP;
-// Menu: HMENU;
-// MenuName: string;
-// m: HMENU;
-// mif: TMenuItemInfo;
-// mi: PMenuItem;
-// btn: TTBButton;
-// begin
-// Menu := GethMenu(AName, MenuName);
-//
-// inc(FMenuID); // Новый индекс
-//
-// if MenuName <> '-' then
-// begin
-// Windows.AppendMenu(Menu, MF_STRING, FMenuID, PChar(MenuName));
-// hbmp := LoadImage(HInstance, PChar(Image), IMAGE_BITMAP, 0, 0,
-// LR_LOADFROMFILE or LR_LOADTRANSPARENT or LR_COLOR);
-//
-// ClearBitmap(hbmp);
-//
-// SetMenuItemBitmaps(Menu, FMenuID, MF_BYCOMMAND, hbmp, hbmp);
-//
-// new(mi);
-// mi^.Handle := Menu;
-// mi^.ID := FMenuID;
-// mi^.Action := AAction;
-// mi^.EnableTest := EnableTest;
-// mi^.VisibleTest := VisibleTest;
-//
-// ZeroMemory(@mif, SizeOf(mif));
-// mif.cbSize := SizeOf(mif);
-// mif.fMask := MIIM_DATA;
-// mif.dwItemData := Integer(mi);
-//
-// SetMenuItemInfo(Menu, FMenuID, false, mif);
-//
-// SendMessage(FToolBar, TB_BUTTONSTRUCTSIZE, SizeOf(btn), 0);
-// ZeroMemory(@btn, SizeOf(btn));
-//
-// if hbmp <> 0 then
-// begin
-// ImageList_Add(FImgList, hbmp, 0);
-// btn.fsStyle := TBSTYLE_BUTTON;
-// btn.fsState := TBSTATE_ENABLED;
-// btn.idCommand := FMenuID;
-// btn.iBitmap := FImageId * 2;
-// SendMessage(FToolBar, TB_ADDBUTTONS, 1, Integer(@btn));
-// inc(FImageId);
-// end;
-// end
-// else
-// begin
-// Windows.AppendMenu(Menu, MF_SEPARATOR, FMenuID, nil);
-//
-// SendMessage(FToolBar, TB_BUTTONSTRUCTSIZE, SizeOf(btn), 0);
-// ZeroMemory(@btn, SizeOf(btn));
-// btn.fsStyle := TBSTYLE_SEP;
-// SendMessage(FToolBar, TB_ADDBUTTONS, 1, Integer(@btn));
-// end;
-// m := GetMenu(Handle);
-// end;
 
 function TEceToolBar.GetHeight: integer;
 var
@@ -238,19 +270,22 @@ begin
   result := rt.Right;
 end;
 
-procedure TEceToolBar.InsertItemAct(Index: integer; AItem: IEceAction;
+procedure TEceToolBar._InsertItemAct(Index: integer; AItem: IEceAction;
   Flags: Word);
 var
   btn: TTBButton;
+  Bif: TBBUTTONINFO;
 begin
   SendMessage(FToolBarWnd, TB_BUTTONSTRUCTSIZE, SizeOf(btn), 0);
-
   ZeroMemory(@btn, SizeOf(btn));
   btn.fsStyle := TBSTYLE_BUTTON;
   btn.fsState := TBSTATE_ENABLED;
-  btn.idCommand := Integer(Self);
-  btn.iBitmap := FItems.Count - 1;
+  btn.idCommand := AItem.GetID;
+  btn.iBitmap := AItem.GetImageIndex;
+
   SendMessage(FToolBarWnd, TB_ADDBUTTONS, 1, integer(@btn));
+//  if AItem.GetImageIndex = -1 then
+//  SendMessage(FToolBarWnd, TB_ENABLEBUTTON, AItem.GetID, 0);
 end;
 
 procedure TEceToolBar.ParentResize;
@@ -261,7 +296,15 @@ end;
 procedure TEceToolBar.SetImageList(AImageList: Cardinal);
 begin
   inherited;
-    SendMessage(FToolBarWnd, TB_SETIMAGELIST, 0, AImageList);
+  SendMessage(FToolBarWnd, TB_SETIMAGELIST, 0, AImageList);
+end;
+
+{ TEceToolButton }
+
+procedure TEceToolButton.UpdateState;
+begin
+  inherited;
+  // todo:
 end;
 
 end.
