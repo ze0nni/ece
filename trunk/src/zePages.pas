@@ -26,6 +26,7 @@ type
 
   TPages = class(tzewndcontrol)
   private
+    FApplication : IEceApplication;
     FPages: TList;
     FActivePage: integer;
     function GetPages(const index: integer): TPage;
@@ -39,7 +40,7 @@ type
     procedure wmSize(var msg: TWMSize);
     message WM_SIZE;
   public
-    constructor Create(parent: cardinal);
+    constructor Create(parent: cardinal; AApp : IEceApplication);
     destructor Destroy; override;
 
     procedure InsertPage(aindex: integer; apage: TPage);
@@ -98,11 +99,13 @@ begin
   UpdatePosition;
 end;
 
-constructor TPages.Create(parent: cardinal);
+constructor TPages.Create(parent: cardinal; AApp : IEceApplication);
 var
   newpage: TPage;
 begin
-  inherited;
+  inherited Create(parent);
+  FApplication := AApp;
+
   FPages := TList.Create;
 
   // newpage := tpage.create(self);
@@ -131,9 +134,7 @@ end;
 
 procedure TPages.SetActivePage(const value: integer);
 begin
-  if FActivePage = value then
-    exit;
-
+  if FActivePage = value then exit;
   try
     Pages[FActivePage].Invalidate;
   except
@@ -143,6 +144,7 @@ begin
     Pages[FActivePage].Invalidate;
   except
   end;
+  FApplication._SetActiveDocumentIndex(FActivePage);
 end;
 
 procedure TPages.InsertPage(aindex: integer; apage: TPage);

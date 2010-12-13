@@ -58,6 +58,7 @@
 			<DCCReference Include="eceConsoleWindow.pas"/>
 			<DCCReference Include="IeceObj.pas"/>
 			<DCCReference Include="EceAppUI.pas"/>
+			<DCCReference Include="eceConfig.pas"/>
 			<None Include="syn\vb.xml"/>
 			<None Include="ModelSupport_ece\Ece\default.txvpck"/>
 			<None Include="ModelSupport_ece\default.txaPackage"/>

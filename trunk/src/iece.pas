@@ -27,9 +27,12 @@ type
     function _GetDocumentsCount: integer; safecall;
     function _GetDocuments(AIndex: integer; var ADocument: IEceDocument)
       : integer; safecall;
+    procedure  _SetActiveDocumentIndex(const index : Integer); safecall;
     procedure _UpdateCaption; safecall;
     procedure _FocusToActiveDocument; safecall;
     procedure _About; safecall;
+
+    function _GetLocalisationString(AString : string) : string; safecall;
     // Для работы с плагинами
     // Регистрация нового "просмотрщика" документов
     procedure RegisterDocument(Doc: IEceDocumentLoader); safecall;
@@ -39,6 +42,16 @@ type
   IEceAction = interface
     procedure AddLink(Ui : IEceUiItem); safecall;
     procedure RemoveLink(Ui : IEceUiItem); safecall;
+    function GetID : Integer; safecall;
+    procedure Execute; safecall;
+
+    procedure SetHint(const value: string); safecall;
+    procedure SetText(const value: string); safecall;
+    procedure SetName(const value: string); safecall;
+    function GetHint: string; safecall;
+    function GetName: string; safecall;
+    function GetText: string; safecall;
+    function GetImageIndex : Integer; safecall;
   end;
 
   IEceUiConteiner = Interface

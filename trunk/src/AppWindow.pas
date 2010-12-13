@@ -10,7 +10,9 @@ uses
   SysUtils,
   ActiveX,
   CommCtrl,
+  CommDlg,
   Variants,
+  eceConfig,
   // zeError,
   zeWndControls,
   zePages,
@@ -21,16 +23,6 @@ uses
 type
   PGetPlugin = function: IEcePlugin; safecall;
 
-  PMenuItem = ^TMenuItem;
-
-  TMenuItem = record
-    Handle: HMENU;
-    ID: Word;
-    Action: string;
-    EnableTest: string;
-    VisibleTest: string;
-  end;
-
   EEceApplicationException = class(Exception)
 
   end;
@@ -39,15 +31,18 @@ type
 
   TEceAppWindow = class(TzeWndControl, IEceApplication, IDispatch)
   protected
+    FConfig: TEceConfig;
     FConsole: TEceConsoleWindow;
     FActions: TInterfaceList;
     FDocuments: TInterfaceList;
     FPages: TPages;
     FActiveDocument: Integer;
-    FMenus: TStringList;
     FMenuID: Word;
     FToolBar: IEceUiConteiner;
+    FMenuBar: IEceUiConteiner;
+    FStatusBar: HWND;
     FImgList: HIMAGELIST;
+    FLanguage: TStringList;
     // Модули
     FDocTypes: TInterfaceList;
     FDocTypesEx: TStringList;
@@ -68,6 +63,7 @@ type
     message WM_COMMAND;
 
     function GetDocumentsCount: Integer;
+    procedure _SetActiveDocumentIndex(const index: Integer); safecall;
     function GetDocuments(const index: Integer): IEceDocument;
     procedure SetActiveDocument(const value: Integer);
     function GetActiveDocumentWindow: IEceDocument;
@@ -79,10 +75,13 @@ type
     procedure _FocusToActiveDocument; safecall;
     procedure _UpdateCaption; safecall;
     procedure _About; safecall;
+
+    function _GetLocalisationString(AString: string): string; safecall;
   private
-    function GethMenu(APath: string; var MenuName: string): HMENU;
     function GetDocTypeIndex(AFileName: string): Integer;
     function GetDocLoaderIndexByName(Name: string): Integer;
+    procedure LoadLanguage(ALoc: string);
+    procedure InitToolMenu;
   protected
     function InvokeName(DispID: Integer; const IID: TGUID; LocaleID: Integer;
       Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
@@ -97,8 +96,8 @@ type
     function CloseAllDocuments: boolean;
 
     function LoadPlugin(AFileName: string): boolean;
-    constructor InitActions;
-    constructor InitToolBar;
+    procedure InitActions;
+    procedure InitToolBar;
 
     property DocumentsCount: Integer read GetDocumentsCount;
     property Documents[const index: Integer]: IEceDocument read GetDocuments;
@@ -115,30 +114,53 @@ type
 
   TEceAction = class(TEceInterfacedObject, IDispatch, IEceAction)
   private
+    FID: Integer;
     FApplication: TEceAppWindow;
     FItems: TInterfaceList;
     FHint: string;
     FText: string;
     FName: string;
-    procedure SetHint(const value: string);
-    procedure SetText(const value: string);
-    procedure SetName(const value: string);
+    FImageIndex : Integer;
+    procedure SetHint(const value: string); safecall;
+    procedure SetText(const value: string); safecall;
+    procedure SetName(const value: string); safecall;
+    function GetHint: string; safecall;
+    function GetName: string; safecall;
+    function GetText: string; safecall;
+    function GetID: Integer; safecall;
+    function GetImageIndex : Integer; safecall;
 
     procedure UpdateItems;
   protected
     function InvokeName(DispID: Integer; const IID: TGUID; LocaleID: Integer;
       Flags: Word; Params: TPropArr; var VarResult, ExcepInfo, ArgErr: TPropArr)
       : HResult; override;
-
     procedure AddLink(Ui: IEceUiItem); safecall;
     procedure RemoveLink(Ui: IEceUiItem); safecall;
   public
-    Constructor Create(App: TEceAppWindow; AName, AText, AHint: string);
+    Constructor Create(App: TEceAppWindow; AName: string; AImageIndex : Integer = -1);
     Destructor Destroy; override;
 
-    property Name: string read FName write SetName;
-    property Text: string read FText write SetText;
-    property Hint: string read FHint write SetHint;
+    property Name: string read GetName write SetName;
+    property Text: string read GetText write SetText;
+    property Hint: string read GetHint write SetHint;
+
+    procedure Execute; virtual; safecall;
+  end;
+
+  PKernelActionProc = procedure(App: TEceAppWindow; Data: Integer);
+
+  TEceKernelAction = class(TEceAction)
+  private
+    FProc: PKernelActionProc;
+    FObj: TEceAppWindow;
+    FData: Integer;
+  protected
+  public
+    Constructor Create(App: TEceAppWindow; AName: string;
+      AProc: PKernelActionProc; AObj: TEceAppWindow; AData: Integer;AImageIndex : Integer = -1);
+
+    procedure Execute; override; safecall;
   end;
 
 var
@@ -206,6 +228,16 @@ begin
   Result := Handle;
 end;
 
+function TEceAppWindow._GetLocalisationString(AString: string): string;
+begin
+  Result := FLanguage.Values[AString];
+end;
+
+procedure TEceAppWindow._SetActiveDocumentIndex(const index: Integer);
+begin
+  ActiveDocument := index;
+end;
+
 procedure TEceAppWindow._UpdateCaption;
 begin
   UpdateCaption;
@@ -221,10 +253,12 @@ procedure TEceAppWindow.wmSize(var msg: TWMSize);
 var
   rt: Trect;
   tbRect: Trect;
+  sbRect: Trect;
 begin
   inherited;
   if ActiveDocumentWindow = nil then
     exit;
+
   GetClientRect(Handle, rt);
   tbRect := Rect(0, 0, FToolBar.GetWidth, FToolBar.GetHeight);
   // SetWindowPos(FToolBar, 0, 0, 0, tbRect.Bottom, rt.Right,
@@ -236,8 +270,13 @@ begin
   // rt.Right, rt.Bottom - 24 - 105 - tbRect.Bottom, SWP_NOACTIVATE);
   ActiveDocumentWindow._SetViewRect(0, tbRect.Bottom + 24, rt.Right,
     rt.Bottom - 24 - 105 - tbRect.Bottom);
-  SetWindowPos(FConsole.Handle, 0, 0, rt.Bottom - 105, rt.Right, 105,
-    SWP_NOACTIVATE)
+
+  GetClientRect(FStatusBar, sbRect);
+  SetWindowPos(FConsole.Handle, 0, 0, rt.Bottom - 105, rt.Right,
+    105 - sbRect.Bottom, SWP_NOACTIVATE);
+  ShowWindow(FStatusBar, SW_SHOW);
+  SetWindowPos(FStatusBar, 0, 0, rt.Bottom - sbRect.Bottom, rt.Right,
+    sbRect.Bottom, 0)
 end;
 
 procedure TEceAppWindow.wmActivate(var msg: TWMActivate);
@@ -259,28 +298,22 @@ end;
 
 procedure TEceAppWindow.wmCommand(var msg: TWMCommand);
 var
-  mi: PMenuItem;
-  mif: TMenuItemInfo;
-  Menu: HMENU;
+  Act: IEceAction;
 begin
-  Menu := GetMenu(Handle);
-  ZeroMemory(@mif, SizeOf(mif));
-  mif.cbSize := SizeOf(mif);
-  mif.fMask := MIIM_DATA;
-  if not GetMenuItemInfo(Menu, msg.ItemID, false, mif) then
+  if ((msg.ItemID < 0) and (msg.ItemID >= FActions.Count) and
+      (FActions[msg.ItemID] <> nil)) then
   begin
     inherited;
     exit;
   end;
-  mi := Pointer(mif.dwItemData);
-  if mi <> nil then
-    try
-      // FConsole.Machine.AddCode(mi^.Action);
-    except
-      on e: Exception do
-        MessageBox(Handle, PChar(format('%s: %s', [e.ClassName, e.Message])),
-          nil, MB_ICONERROR);
-    end;
+  try
+    Act := IEceAction(FActions[msg.ItemID]);
+    Act.Execute;
+  except
+    on e: Exception do
+      MessageBox(Handle, PChar(format('%s: %s', [e.ClassName, e.Message])),
+        nil, MB_ICONERROR);
+  end;
 end;
 
 procedure TEceAppWindow.wmDestroy(var msg: TWMDestroy);
@@ -306,46 +339,128 @@ begin
 
 end;
 
-Constructor TEceAppWindow.InitActions;
+procedure TEceAppWindow.LoadLanguage(ALoc: string);
 var
-  act: TEceAction;
+  SR: TSearchRec;
+var
+  tmpl: TStringList;
 begin
-  // File.New
-  act := TEceAction.Create(Self, 'Ece.File.New', 'New...', 'New');
-  FActions.Add(act);
-  // File.Open
-  act := TEceAction.Create(Self, 'Ece.File.Open', 'Open...', 'Open');
-  FActions.Add(act);
-  // File.Save
-  act := TEceAction.Create(Self, 'Ece.File.Save', 'Save', 'Save');
-  FActions.Add(act);
-  // File.SaveAs
-  act := TEceAction.Create(Self, 'Ece.File.SaveAs', 'Save as...', 'Save as');
-  FActions.Add(act);
-  // File.Close
-  act := TEceAction.Create(Self, 'Ece.File.Close', 'Close', 'Close');
-  FActions.Add(act);
-  // File.Print
-  act := TEceAction.Create(Self, 'Ece.File.Print', 'Print...', 'Print');
-  FActions.Add(act);
-  // File.Exit
-  act := TEceAction.Create(Self, 'Ece.File.Exit', 'Exit', 'Exit');
-  FActions.Add(act);
-  //=================================================================
-  // File.Exit
-  act := TEceAction.Create(Self, 'Ece.File.Exit', 'Exit', 'Exit');
-  FActions.Add(act);
-  // File.Exit
-  act := TEceAction.Create(Self, 'Ece.File.Exit', 'Exit', 'Exit');
-  FActions.Add(act);
+  FLanguage.Clear;
+  tmpl := TStringList.Create;
+  if FindFirst(format('.\languages\*.%s', [ALoc]), faAnyFile, SR) = 0 then
+  begin
+    repeat
+      try
+        tmpl.LoadFromFile(format('.\languages\%s', [SR.Name]));
+        FLanguage.AddStrings(tmpl);
+      except
+
+      end;
+    until FindNext(SR) <> 0;
+  end;
+end;
+{$REGION 'KernelProc'}
+
+procedure EceFileNew(App: TEceAppWindow; Data: Integer);
+begin
+
 end;
 
-Constructor TEceAppWindow.InitToolBar;
+procedure EceFileOpen(App: TEceAppWindow; Data: Integer);
+var
+  tof: TOpenFilename;
+  f: array [0 .. MAX_PATH] of Char;
+begin
+  ZeroMemory(@f, SizeOf(f));
+  ZeroMemory(@tof, SizeOf(tof));
+  tof.lStructSize := SizeOf(tof);
+  tof.hWndOwner := App.Handle;
+  tof.HInstance := HInstance;
+  tof.lpstrFilter := 'All files (*.*)'#0'*.*'#0#0;
+  tof.lpstrTitle := 'Select file';
+  tof.lpstrFile := @f;
+  tof.nMaxFile := SizeOf(f);
+  tof.Flags := OFN_EXPLORER or OFN_FILEMUSTEXIST or OFN_HIDEREADONLY or
+    OFN_PATHMUSTEXIST;
+  if GetOpenFileName(tof) then
+    App.NewDocument(tof.lpstrFile);
+end;
+
+procedure EceFileSave(App: TEceAppWindow; Data: Integer);
+begin
+
+end;
+
+procedure EceFileSaveAs(App: TEceAppWindow; Data: Integer);
+begin
+
+end;
+
+procedure EceFileClose(App: TEceAppWindow; Data: Integer);
+begin
+  App.CloseDocument(App.ActiveDocument)
+end;
+
+procedure EceFilePrint(App: TEceAppWindow; Data: Integer);
+begin
+
+end;
+
+procedure EceFileExit(App: TEceAppWindow; Data: Integer);
+begin
+  if App.CloseAllDocuments then
+    PostQuitMessage(0);
+end;
+{$ENDREGION}
+
+procedure TEceAppWindow.InitActions;
+begin
+  TEceKernelAction.Create(Self, 'Ece.File.New', @EceFileNew, Self, 0, 0);
+  TEceKernelAction.Create(Self, 'Ece.File.Open', @EceFileOpen, Self, 0, 1);
+  TEceKernelAction.Create(Self, 'Ece.File.Save', @EceFileSave, Self, 0, 2);
+  TEceKernelAction.Create(Self, 'Ece.File.SaveAs', @EceFileSaveAs, Self, 0, -1);
+  TEceKernelAction.Create(Self, 'Ece.File.SaveAll', nil, Self, 0, 13);
+  TEceKernelAction.Create(Self, 'Ece.File.Close', @EceFileClose, Self,
+   0);
+  TEceKernelAction.Create(Self, 'Ece.File.Print', @EceFilePrint, Self, 0, 8);
+  TEceKernelAction.Create(Self, 'Ece.File.Exit', @EceFileExit, Self, 0);
+
+  TEceKernelAction.Create(Self, 'Ece.Edit.Undo', nil, Self, 0, 3);
+  TEceKernelAction.Create(Self, 'Ece.Edit.Redo', nil, Self, 0, 4);
+
+  TEceKernelAction.Create(Self, 'Ece.Edit.Cut', nil, Self, 0, 5);
+  TEceKernelAction.Create(Self, 'Ece.Edit.Copy', nil, Self, 0, 6);
+  TEceKernelAction.Create(Self, 'Ece.Edit.Paste', nil, Self, 0, 7);
+  TEceAction.Create(Self, 'Ece.Edit.Delete');
+  TEceAction.Create(Self, 'Ece.Edit.SelectAll');
+  TEceKernelAction.Create(Self, 'Ece.Edit.Find', nil, Self, 0, 10);
+  TEceKernelAction.Create(Self, 'Ece.Edit.FindNext', nil, Self, 0, 12);
+  TEceKernelAction.Create(Self, 'Ece.Edit.Replace', nil, Self, 0, 11);
+
+  TEceAction.Create(Self, 'Ece.View.Font');
+  TEceAction.Create(Self, 'Ece.View.ColorTheme');
+  TEceAction.Create(Self, 'Ece.View.Syntax');
+end;
+
+procedure TEceAppWindow.InitToolMenu;
 var
   i: Integer;
 begin
   for i := 0 to FActions.Count - 1 do
-  FToolBar.AddActionItem(IEceAction(FActions[i]), 0);
+  begin
+    FMenuBar.AddActionItem(IEceAction(FActions[i]), 0);
+  end;
+end;
+
+procedure TEceAppWindow.InitToolBar;
+var
+  i: Integer;
+begin
+  for i := 0 to FActions.Count - 1 do
+  begin
+    if IEceAction(FActions[i]).GetImageIndex <> -1 then
+      FToolBar.AddActionItem(IEceAction(FActions[i]), 0);
+  end;
 end;
 
 const
@@ -378,27 +493,19 @@ const
 
 Constructor TEceAppWindow.Create(AParent: Cardinal);
 var
-  Menu: HMENU;
   TooBmp: HBitmap;
 begin
   inherited;
+  // Конфигурации
+  FConfig := TEceConfig.Create([ctRegistry], 'Ece', 'ZeDevel');
 
   // Глобальная переменная
   GlApp := Self;
+  // UI
   FActions := TInterfaceList.Create;
-
-  Menu := CreateMenu;
-
-  SetMenu(Handle, Menu);
-  AppendMenu(Menu, MF_STRING, 0, 'File');
-  AppendMenu(Menu, MF_STRING, 0, 'Edit');
-  AppendMenu(Menu, MF_STRING, 0, 'View');
-  AppendMenu(Menu, MF_STRING, 0, 'Project');
-  AppendMenu(Menu, MF_STRING, 0, 'Run');
-  AppendMenu(Menu, MF_STRING, 0, 'Tools');
-  AppendMenu(Menu, MF_STRING, 0, 'Help');
-
-  FMenus := TStringList.Create;
+  FMenuBar := TEceToolMenu.Create(IEceApplication(Self), Handle);
+  FStatusBar := CreateWindow(STATUSCLASSNAME, '', WS_VISIBLE or WS_CHILD, 0, 0,
+    10, 25, Handle, 0, HInstance, nil);
 
   // ToolBAr
   FImgList := ImageList_Create(16, 16, ILC_COLOR24 or ILC_MASK, 0, 0);
@@ -406,12 +513,11 @@ begin
   ImageList_AddMasked(FImgList, TooBmp, $000000);
   DeleteObject(TooBmp);
 
-  FToolBar := TEceToolBar.Create(Handle);
-
+  FToolBar := TEceToolBar.Create(IEceApplication(Self), Handle);
   FToolBar.SetImageList(FImgList);
 
   FDocuments := TInterfaceList.Create;
-  FPages := TPages.Create(Handle);
+  FPages := TPages.Create(Handle, IEceApplication(Self));
   ShowWindow(FPages.Handle, SW_SHOW);
   FConsole := TEceConsoleWindow.Create(Handle, Self);
   FConsole.LoadColorTheme(ExtractFilePath(ParamStr(0)) + 'color\console.txt');
@@ -457,9 +563,13 @@ begin
 
   UpdateCaption;
 
+  // Локализация
+  FLanguage := TStringList.Create;
+  LoadLanguage('ru');
   // Создаем базовые события
   InitActions;
   // Создаем кнопки на панели и меню
+  InitToolMenu;
   InitToolBar;
   // Запускаем скрипты
   FConsole.LoadStdScript;
@@ -530,10 +640,6 @@ begin
   begin
     FConsole.Free;
   end;
-  if Assigned(FMenus) then
-  begin
-    FMenus.Free;
-  end;
   if Assigned(FDocTypes) then
   begin
     FDocTypes.Free;
@@ -545,6 +651,10 @@ begin
   if Assigned(FActions) then
   begin
     FActions.Free;
+  end;
+  if Assigned(FLanguage) then
+  begin
+    FLanguage.Free;
   end;
   inherited;
 end;
@@ -575,49 +685,9 @@ end;
 function TEceAppWindow.CloseDocument(const index: Integer): boolean;
 begin
   // Documents[index].Free; // тут вылезет эксепшн приневерном индексе
+  { TODO -oOnni -cGeneral : Если документ измениося, необходимо показать диалог }
   FDocuments.Delete(index);
   { todo: Нужно еще изменить текущий документ }
-end;
-
-function TEceAppWindow.GethMenu(APath: string; var MenuName: string): HMENU;
-var
-  sl: TStringList;
-  i: Integer;
-  Menu, PopUp: HMENU;
-  MenuPath: string;
-  index: Integer;
-  mi: PMenuItem;
-begin
-  sl := TStringList.Create;
-  try
-    Menu := GetMenu(Handle);
-    sl.Text := StringReplace(APath, '/', #13#10, [rfReplaceAll]);
-    for i := 0 to sl.Count - 2 do
-    begin
-      MenuPath := MenuPath + sl[i] + '\';
-      index := FMenus.IndexOf(MenuPath);
-      if index = -1 then
-      begin
-        new(mi);
-
-        PopUp := CreatePopupMenu;
-        mi^.Handle := PopUp;
-        FMenus.AddObject(MenuPath, Tobject(mi));
-
-        Windows.AppendMenu(Menu, MF_POPUP, PopUp, PChar(sl[i]));
-      end
-      else
-      begin
-        mi := Pointer(FMenus.Objects[index]);
-        PopUp := mi^.Handle;
-      end;
-      Menu := PopUp;
-    end;
-  finally
-    MenuName := sl[sl.Count - 1];
-    sl.Free;
-    Result := PopUp;
-  end;
 end;
 
 procedure ClearBitmap(hbmp: HBitmap);
@@ -644,7 +714,11 @@ end;
 function TEceAppWindow.CloseAllDocuments: boolean;
 begin
   while DocumentsCount <> 0 do
-    CloseDocument(0);
+  begin
+    if not CloseDocument(0) then
+      exit(false);
+  end;
+  Result := true;
 end;
 
 function TEceAppWindow.GetDocumentsCount: Integer;
@@ -810,14 +884,13 @@ begin
         Result := S_OK;
       end;
 {$ENDREGION}
-{$REGION 'ActionsCount'}
+{$REGION 'New Action'}
     PROP_NEWACTION:
       begin
         case Flags of
           DISPATCH_GET:
             begin
-              n := FActions.Add
-                (TEceAction.Create(Self, Params[0], Params[1], Params[2]));
+              n := FActions.Add(TEceAction.Create(Self, Params[0]));
               VarResult[0] := FActions[n] as IDispatch
             end
           else
@@ -930,15 +1003,27 @@ begin
 end;
 
 procedure TEceAppWindow.SetActiveDocument(const value: Integer);
+var
+  i: Integer;
 begin
-  if (FActiveDocument < 0) or (FActiveDocument > DocumentsCount - 1) then
-    Documents[FActiveDocument]._KillFocus;
-
-  FActiveDocument := value;
-  if (FActiveDocument < 0) or (FActiveDocument > DocumentsCount - 1) then
-    Documents[FActiveDocument]._SetFocus;
+  { TODO -oOnni -cGeneral : Ой, нагородил! }
+    FActiveDocument := value;
+  for i := 0 to FDocuments.Count - 1 do
+  begin
+    if i = value then
+    begin
+      SendMessage(Handle, WM_SIZE, 0, 0);
+      ShowWindow(Documents[i]._GetHandle, SW_SHOW);
+      Documents[i]._SetFocus;
+    end
+    else
+    begin
+      ShowWindow(Documents[i]._GetHandle, SW_HIDE);
+    end;
+  end;
 
   SendMessage(Handle, WM_SIZE, 0, 0);
+  InvalidateRect(FPages.Handle, nil, true);
   UpdateCaption;
 end;
 
@@ -978,14 +1063,22 @@ const
   PROP_ACTION_VISIBLE = 6;
   PROP_ACTION_CHECKED = 7;
 
-constructor TEceAction.Create(App: TEceAppWindow; AName, AText, AHint: string);
+constructor TEceAction.Create(App: TEceAppWindow; AName: string; AImageIndex : Integer = -1);
 begin
+  App.FActions.Add(IEceAction(Self));
+  FID := App.FActions.Count - 1;
+
   FApplication := App;
   FItems := TInterfaceList.Create;
 
   FName := AName;
-  Text := AText;
-  Hint := AHint;
+  Text := App.FLanguage.Values[AName + '.Text'];
+  if Text = '' then
+    Text := AName;
+  Hint := App.FLanguage.Values[AName + '.Hint'];
+  if Hint = '' then
+    Hint := AName;
+  FImageIndex := AImageIndex;
 
   RegisterName('Name', PROP_ACTION_NAME);
   RegisterName('Text', PROP_ACTION_TEXT);
@@ -1003,6 +1096,36 @@ begin
     FItems.Free;
   end;
   inherited;
+end;
+
+procedure TEceAction.Execute;
+begin
+
+end;
+
+function TEceAction.GetHint: string;
+begin
+  Result := FHint;
+end;
+
+function TEceAction.GetID: Integer;
+begin
+  Result := FID;
+end;
+
+function TEceAction.GetImageIndex: Integer;
+begin
+  Result := FImageIndex;
+end;
+
+function TEceAction.GetName: string;
+begin
+  Result := FName;
+end;
+
+function TEceAction.GetText: string;
+begin
+  Result := FText;
 end;
 
 function TEceAction.InvokeName(DispID: Integer; const IID: TGUID;
@@ -1096,6 +1219,28 @@ begin
   for i := 0 to FItems.Count - 1 do
   begin
     IEceUiItem(FItems[i]).UpdateState;
+  end;
+end;
+
+{ TEceKernelAction }
+
+constructor TEceKernelAction.Create(App: TEceAppWindow; AName: string;
+  AProc: PKernelActionProc; AObj: TEceAppWindow; AData: Integer; AImageIndex : Integer = -1);
+begin
+  inherited Create(App, AName, AImageIndex);
+  FProc := AProc;
+  FObj := AObj;
+  FData := AData;
+end;
+
+procedure TEceKernelAction.Execute;
+begin
+  // inherited;
+  try
+    if Assigned(FProc) then
+      FProc(FApplication, FData);
+  except
+
   end;
 end;
 
