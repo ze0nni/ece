@@ -32,6 +32,7 @@ type
     function GetPages(const index: integer): TPage;
     procedure SetActivePage(const value: integer);
     function TabFromXY(x, y: integer): integer;
+    function GetPagesCount: integer;
   protected
     procedure wmpaint(var msg: twmpaint);
     message wm_paint;
@@ -47,9 +48,11 @@ type
     procedure UpdatePosition;
 
     property Pages[const index: integer]: TPage read GetPages;
+    property PagesCount : integer read GetPagesCount;
     property PageIndex: integer read FActivePage write SetActivePage;
 
     function AddPage(ATitle: string; AData: TObject): integer;
+    procedure DeletePage(AIndex: Integer);
   end;
 
   TPage = class
@@ -117,6 +120,12 @@ begin
   // insertpage(2, newpage);
 end;
 
+procedure TPages.DeletePage(AIndex: Integer);
+begin
+  FPages.Delete(AIndex);
+  InvalidateRect(handle, nil, false)
+end;
+
 destructor TPages.Destroy;
 var
   i: integer;
@@ -130,6 +139,11 @@ end;
 function TPages.GetPages(const index: integer): TPage;
 begin
   result := TPage(FPages[index]);
+end;
+
+function TPages.GetPagesCount: integer;
+begin
+  Result := FPages.Count;
 end;
 
 procedure TPages.SetActivePage(const value: integer);

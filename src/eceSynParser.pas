@@ -1,6 +1,11 @@
 unit eceSynParser;
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
+
 interface
+
+uses
+  SysUtils,
+  Classes;
 
 type
   TEceSynLineState = class;
@@ -11,11 +16,13 @@ type
   //
   TEceSynParser = class
   private
+    FKeyWords: TStringList;
+
     function isRegionBegin(c: PChar; var RegID: Integer): boolean;
-
   public
+    Constructor Create;
+    Destructor Destroy; override;
     // будут функции для проверки на
-
     function isSpace(c: PChar): boolean; inline;
     function isSymbol(c: PChar): boolean; inline;
     function isKeyword(c: PChar; var Len: Integer): boolean;
@@ -51,54 +58,68 @@ begin
     '\', '=', '@', '$', '&', '^', '{', '}', '<', '>'];
 end;
 
-function TEceSynParser.isKeyword(c: PChar; var Len: Integer): boolean;
+constructor TEceSynParser.Create;
 begin
-  if (c[0] = 'a') and (c[1] = 's') and (isSpace(@c[2]) or isSymbol(@c[2])) then
-  begin
-    Len := 2;
-    exit(true);
-  end
-  else if (c[0] = 'i') and (c[1] = 'f') and (isSpace(@c[2]) or isSymbol(@c[2]))
-    then
-  begin
-    Len := 2;
-    exit(true);
-  end
-  else if (c[0] = 's') and (c[1] = 'u') and (c[2] = 'b') and
-    (isSpace(@c[3]) or isSymbol(@c[3])) then
-  begin
-    Len := 3;
-    exit(true);
-  end else
-  if (c[0] = 'e') and (c[1] = 'n') and (c[2] = 'd') and
-    (isSpace(@c[3]) or isSymbol(@c[3])) then
-  begin
-    Len := 3;
-    exit(true);
-  end else
-  if (c[0] = 'd') and (c[1] = 'i') and (c[2] = 'm') and
-    (isSpace(@c[3]) or isSymbol(@c[3])) then
-  begin
-    Len := 3;
-    exit(true);
-  end else
-  if (c[0] = 'e') and (c[1] = 'l') and (c[2] = 's') and  (c[3] = 'e') and
-    (isSpace(@c[4]) or isSymbol(@c[4])) then
-  begin
-    Len := 4;
-    exit(true);
-  end else
-  if (c[0] = 't') and (c[1] = 'h') and (c[2] = 'e') and  (c[3] = 'n') and
-    (isSpace(@c[4]) or isSymbol(@c[4])) then
-  begin
-    Len := 4;
-    exit(true);
-  end;
-  Result := false;
+  FKeyWords := TStringList.Create;
+  FKeyWords.Add('as');
+  FKeyWords.Add('if');
+  FKeyWords.Add('then');
+  FKeyWords.Add('else');
+  FKeyWords.Add('for');
+  FKeyWords.Add('do');
+  FKeyWords.Add('next');
+  FKeyWords.Add('while');
+  FKeyWords.Add('loop');
+  FKeyWords.Add('end');
+  FKeyWords.Add('dim');
+
+  FKeyWords.Add('sub');
+  FKeyWords.Add('function');
+  FKeyWords.Add('class');
+  FKeyWords.Add('namespace');
+  FKeyWords.Add('property');
+  FKeyWords.Add('private');
+  FKeyWords.Add('public');
+  FKeyWords.Add('shared');
+  FKeyWords.Add('imports');
+
+  FKeyWords.Sort;
+  FKeyWords.Sorted := True;
 end;
 
-function TEceSynParser.isRegionBegin(c: PChar; var RegID: Integer)
-  : boolean;
+destructor TEceSynParser.Destroy;
+begin
+  if Assigned(FKeyWords) then
+    FKeyWords.Free;
+  inherited;
+end;
+
+function TEceSynParser.isKeyword(c: PChar; var Len: Integer): boolean;
+var
+  ki: Integer;
+  KW: String;
+  KwLen: Integer;
+begin
+  for ki := 0 to FKeyWords.Count - 1 do
+  begin
+    Kw := FKeyWords[ki];
+    KwLen := Length(Kw);
+    {TODO -oOnni -cGeneral : Ой вот тут мб ошибка доступа к памяти}
+    try
+    if (c[0] = kw[1])and(c[KwLen-1] = kw[KwLen])and(isSpace(@c[KwLen])or isSymbol(@c[KwLen])) then
+    begin
+      Len := KwLen;
+      Exit(True);
+    end;
+    except
+      Assert(false, 'Ну что я говорил?');
+    end;
+  end;
+  len := 0;
+  Exit(False);
+end;
+
+function TEceSynParser.isRegionBegin(c: PChar; var RegID: Integer): boolean;
 begin
   Result := c^ in ['"'];
 end;
@@ -113,7 +134,6 @@ begin
   SChar := PChar(ALine);
   CChar := SChar;
   EChar := SChar + Length(ALine);
-
   repeat
     if CChar^ = '"' then
     begin

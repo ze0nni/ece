@@ -120,7 +120,7 @@ type
     FHint: string;
     FText: string;
     FName: string;
-    FImageIndex : Integer;
+    FImageIndex: Integer;
     procedure SetHint(const value: string); safecall;
     procedure SetText(const value: string); safecall;
     procedure SetName(const value: string); safecall;
@@ -128,7 +128,7 @@ type
     function GetName: string; safecall;
     function GetText: string; safecall;
     function GetID: Integer; safecall;
-    function GetImageIndex : Integer; safecall;
+    function GetImageIndex: Integer; safecall;
 
     procedure UpdateItems;
   protected
@@ -138,7 +138,8 @@ type
     procedure AddLink(Ui: IEceUiItem); safecall;
     procedure RemoveLink(Ui: IEceUiItem); safecall;
   public
-    Constructor Create(App: TEceAppWindow; AName: string; AImageIndex : Integer = -1);
+    Constructor Create(App: TEceAppWindow; AName: string;
+      AImageIndex: Integer = -1);
     Destructor Destroy; override;
 
     property Name: string read GetName write SetName;
@@ -158,7 +159,8 @@ type
   protected
   public
     Constructor Create(App: TEceAppWindow; AName: string;
-      AProc: PKernelActionProc; AObj: TEceAppWindow; AData: Integer;AImageIndex : Integer = -1);
+      AProc: PKernelActionProc; AObj: TEceAppWindow; AData: Integer;
+      AImageIndex: Integer = -1);
 
     procedure Execute; override; safecall;
   end;
@@ -236,6 +238,8 @@ end;
 procedure TEceAppWindow._SetActiveDocumentIndex(const index: Integer);
 begin
   ActiveDocument := index;
+  if FPages.PageIndex <> index then
+    FPages.PageIndex := index;
 end;
 
 procedure TEceAppWindow._UpdateCaption;
@@ -363,7 +367,8 @@ end;
 
 procedure EceFileNew(App: TEceAppWindow; Data: Integer);
 begin
-
+  App.NewDocument('');
+  App.FPages.PageIndex := App.FPages.PagesCount - 1;
 end;
 
 procedure EceFileOpen(App: TEceAppWindow; Data: Integer);
@@ -384,11 +389,27 @@ begin
     OFN_PATHMUSTEXIST;
   if GetOpenFileName(tof) then
     App.NewDocument(tof.lpstrFile);
+  App.FPages.PageIndex := App.FPages.PagesCount - 1;
 end;
 
 procedure EceFileSave(App: TEceAppWindow; Data: Integer);
+var
+  tof: TOpenFilename;
+  f: array [0 .. MAX_PATH] of Char;
 begin
-
+  ZeroMemory(@f, SizeOf(f));
+  ZeroMemory(@tof, SizeOf(tof));
+  tof.lStructSize := SizeOf(tof);
+  tof.hWndOwner := App.Handle;
+  tof.HInstance := HInstance;
+  tof.lpstrFilter := 'All files (*.*)'#0'*.*'#0#0;
+  tof.lpstrTitle := 'Select file';
+  tof.lpstrFile := @f;
+  tof.nMaxFile := SizeOf(f);
+  tof.Flags := OFN_EXPLORER or OFN_FILEMUSTEXIST or OFN_HIDEREADONLY or
+    OFN_PATHMUSTEXIST;
+  if GetSaveFileName(tof) then
+//    App.NewDocument(tof.lpstrFile);
 end;
 
 procedure EceFileSaveAs(App: TEceAppWindow; Data: Integer);
@@ -397,8 +418,24 @@ begin
 end;
 
 procedure EceFileClose(App: TEceAppWindow; Data: Integer);
+var
+  I: Integer;
 begin
-  App.CloseDocument(App.ActiveDocument)
+  I := App.ActiveDocument;
+
+  if I = 0 then
+    I := 1;
+
+  if App._GetDocumentsCount = 1 then
+  begin
+    App.NewDocument('');
+    App.FPages.PageIndex := 1;
+    I := 1;
+  end;
+  App.CloseDocument(I);
+  if I < 1 then
+    I := 1;
+  App.FPages.PageIndex := I - 1;
 end;
 
 procedure EceFilePrint(App: TEceAppWindow; Data: Integer);
@@ -420,8 +457,7 @@ begin
   TEceKernelAction.Create(Self, 'Ece.File.Save', @EceFileSave, Self, 0, 2);
   TEceKernelAction.Create(Self, 'Ece.File.SaveAs', @EceFileSaveAs, Self, 0, -1);
   TEceKernelAction.Create(Self, 'Ece.File.SaveAll', nil, Self, 0, 13);
-  TEceKernelAction.Create(Self, 'Ece.File.Close', @EceFileClose, Self,
-   0);
+  TEceKernelAction.Create(Self, 'Ece.File.Close', @EceFileClose, Self, 0);
   TEceKernelAction.Create(Self, 'Ece.File.Print', @EceFilePrint, Self, 0, 8);
   TEceKernelAction.Create(Self, 'Ece.File.Exit', @EceFileExit, Self, 0);
 
@@ -444,22 +480,22 @@ end;
 
 procedure TEceAppWindow.InitToolMenu;
 var
-  i: Integer;
+  I: Integer;
 begin
-  for i := 0 to FActions.Count - 1 do
+  for I := 0 to FActions.Count - 1 do
   begin
-    FMenuBar.AddActionItem(IEceAction(FActions[i]), 0);
+    FMenuBar.AddActionItem(IEceAction(FActions[I]), 0);
   end;
 end;
 
 procedure TEceAppWindow.InitToolBar;
 var
-  i: Integer;
+  I: Integer;
 begin
-  for i := 0 to FActions.Count - 1 do
+  for I := 0 to FActions.Count - 1 do
   begin
-    if IEceAction(FActions[i]).GetImageIndex <> -1 then
-      FToolBar.AddActionItem(IEceAction(FActions[i]), 0);
+    if IEceAction(FActions[I]).GetImageIndex <> -1 then
+      FToolBar.AddActionItem(IEceAction(FActions[I]), 0);
   end;
 end;
 
@@ -577,14 +613,14 @@ end;
 
 function TEceAppWindow.GetDocLoaderIndexByName(Name: string): Integer;
 var
-  i: Integer;
+  I: Integer;
   Doc: IEceDocumentLoader;
 begin
-  for i := 0 to FDocTypes.Count - 1 do
+  for I := 0 to FDocTypes.Count - 1 do
   begin
-    Doc := IEceDocumentLoader(FDocTypes[i]);
+    Doc := IEceDocumentLoader(FDocTypes[I]);
     if AnsiLowerCase(Name) = AnsiLowerCase(Doc.GetName) then
-      exit(i);
+      exit(I);
   end;
   Result := -1;
 end;
@@ -622,7 +658,7 @@ end;
 Destructor TEceAppWindow.Destroy;
 var
   pi: ^IInterface;
-  i: Integer;
+  I: Integer;
 begin
   ImageList_Destroy(FImgList);
 
@@ -667,7 +703,7 @@ begin
   NewDocument := CreateDocument(AFileName);
   FDocuments.Add(NewDocument);
   FPages.AddPage(NewDocument.GetFileName, nil);
-  SendMessage(Handle, WM_SIZE, 0, 0);
+  PostMessage(Handle, WM_SIZE, 0, 0);
 end;
 
 procedure TEceAppWindow.RegisterDocument(Doc: IEceDocumentLoader);
@@ -686,14 +722,16 @@ function TEceAppWindow.CloseDocument(const index: Integer): boolean;
 begin
   // Documents[index].Free; // тут вылезет эксепшн приневерном индексе
   { TODO -oOnni -cGeneral : Если документ измениося, необходимо показать диалог }
+  ShowWindow(Documents[Index]._GetHandle, SW_HIDE);
   FDocuments.Delete(index);
+  FPages.DeletePage(Index);
   { todo: Нужно еще изменить текущий документ }
 end;
 
 procedure ClearBitmap(hbmp: HBitmap);
 var
   cdc: hdc;
-  i: Integer;
+  I: Integer;
   j: Integer;
   c: Integer;
   cc: Integer;
@@ -702,11 +740,11 @@ begin
   SelectObject(cdc, hbmp);
   c := GetPixel(cdc, 0, 15);
   cc := GetSysColor(COLOR_BTNFACE);
-  for i := 0 to 32 - 1 do
+  for I := 0 to 32 - 1 do
     for j := 0 to 16 - 1 do
     begin
-      if GetPixel(cdc, i, j) = c then
-        SetPixel(cdc, i, j, cc);
+      if GetPixel(cdc, I, j) = c then
+        SetPixel(cdc, I, j, cc);
     end;
   DeleteDC(cdc);
 end;
@@ -1004,24 +1042,23 @@ end;
 
 procedure TEceAppWindow.SetActiveDocument(const value: Integer);
 var
-  i: Integer;
+  I: Integer;
 begin
   { TODO -oOnni -cGeneral : Ой, нагородил! }
-    FActiveDocument := value;
-  for i := 0 to FDocuments.Count - 1 do
+  FActiveDocument := value;
+  for I := 0 to FDocuments.Count - 1 do
   begin
-    if i = value then
+    if I = value then
     begin
-      SendMessage(Handle, WM_SIZE, 0, 0);
-      ShowWindow(Documents[i]._GetHandle, SW_SHOW);
-      Documents[i]._SetFocus;
+      ShowWindow(Documents[I]._GetHandle, SW_SHOW);
+      Documents[I]._SetFocus;
+      PostMessage(Handle, WM_SIZE, 0, 0);
     end
     else
     begin
-      ShowWindow(Documents[i]._GetHandle, SW_HIDE);
+      ShowWindow(Documents[I]._GetHandle, SW_HIDE);
     end;
   end;
-
   SendMessage(Handle, WM_SIZE, 0, 0);
   InvalidateRect(FPages.Handle, nil, true);
   UpdateCaption;
@@ -1063,7 +1100,8 @@ const
   PROP_ACTION_VISIBLE = 6;
   PROP_ACTION_CHECKED = 7;
 
-constructor TEceAction.Create(App: TEceAppWindow; AName: string; AImageIndex : Integer = -1);
+constructor TEceAction.Create(App: TEceAppWindow; AName: string;
+  AImageIndex: Integer = -1);
 begin
   App.FActions.Add(IEceAction(Self));
   FID := App.FActions.Count - 1;
@@ -1214,18 +1252,19 @@ end;
 
 procedure TEceAction.UpdateItems;
 var
-  i: Integer;
+  I: Integer;
 begin
-  for i := 0 to FItems.Count - 1 do
+  for I := 0 to FItems.Count - 1 do
   begin
-    IEceUiItem(FItems[i]).UpdateState;
+    IEceUiItem(FItems[I]).UpdateState;
   end;
 end;
 
 { TEceKernelAction }
 
 constructor TEceKernelAction.Create(App: TEceAppWindow; AName: string;
-  AProc: PKernelActionProc; AObj: TEceAppWindow; AData: Integer; AImageIndex : Integer = -1);
+  AProc: PKernelActionProc; AObj: TEceAppWindow; AData: Integer;
+  AImageIndex: Integer = -1);
 begin
   inherited Create(App, AName, AImageIndex);
   FProc := AProc;

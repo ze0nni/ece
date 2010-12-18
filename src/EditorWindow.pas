@@ -120,7 +120,9 @@ type
     procedure _EndUpdate; override; safecall;
     procedure _SetFocus; override; safecall;
     procedure _KillFocus; override; safecall;
-    procedure _LoadFromFile(Const filename: string); override; safecall;
+
+    function Load(aSource: string; var err: string): BOOL; override; safecall;
+    function Save(aTarget: string; var err: string): BOOL; override; safecall;
 
     function GetDocumentTitle: string; override;
     function GetFileName: string; override;
@@ -672,12 +674,6 @@ begin
   KillFocus;
 end;
 
-procedure TEceEditorWindow._LoadFromFile(const filename: string);
-begin
-  inherited;
-  LoadFromFile(filename);
-end;
-
 procedure TEceEditorWindow._SetFocus;
 begin
   inherited;
@@ -1100,6 +1096,16 @@ begin
   Caret.Hide;
 end;
 
+function TEceEditorWindow.Save(aTarget: string; var err: string): BOOL;
+begin
+  try
+    SaveToFile(aTarget);
+  except
+    on e: Exception do
+      err := e.Message;
+  end;
+end;
+
 procedure TEceEditorWindow.SaveToFile(AFileName: string);
 var
   i: integer;
@@ -1111,6 +1117,16 @@ begin
     WriteLn(f, Strings[i]);
   CloseFile(f);
   inherited;
+end;
+
+function TEceEditorWindow.Load(aSource: string; var err: string): BOOL;
+begin
+  try
+    LoadFromFile(aSource);
+  except
+    on e: Exception do
+      err := e.Message;
+  end;
 end;
 
 procedure TEceEditorWindow.LoadColorTheme(AFileName: string);
@@ -1935,7 +1951,8 @@ begin
 
       Cx := Size - round(FEditor.CharWidth * 1.5) - 2;
       Cy := (i + 1) * FEditor.CharHeight - FEditor.CharWidth;
-      RoundRect(DC, Cx, Cy, Cx + FEditor.CharWidth, Cy + FEditor.CharWidth,round(FEditor.CharWidth/4),round(FEditor.CharWidth/4));
+      RoundRect(DC, Cx, Cy, Cx + FEditor.CharWidth, Cy + FEditor.CharWidth,
+        round(FEditor.CharWidth / 4), round(FEditor.CharWidth / 4));
       TextOut(DC, Cx, Cy + 1, Pchar(IntToStr(LineO.BookMark)), 1);
       DeleteObject(SelectObject(DC, MarkFont));
       DeleteObject(SelectObject(DC, Brush));
@@ -2812,14 +2829,14 @@ function TEceEditorLoader.CreateDocument(AApp: IEceApplication;
   AFileName: string; var IDoc: IEceDocument; var ErrResult: string): Boolean;
 begin
   try
-  IDoc := TEceEditorWindow.Create(AApp._GetHandle, AApp);
-  IDoc._LoadFromFile(AFileName);
-  Result := true;
+    IDoc := TEceEditorWindow.Create(AApp._GetHandle, AApp);
+    IDoc.Load(AFileName, ErrResult);
+    Result := true;
   except
-    on e : Exception do
+    on e: Exception do
     begin
       ErrResult := e.Message;
-      Exit(false);
+      exit(false);
     end;
   end;
 end;
