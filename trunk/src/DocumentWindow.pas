@@ -37,6 +37,9 @@ type
     procedure _Hide;virtual; safecall;
     procedure _SetViewRect(left, top, right, bottom : Integer);virtual; safecall;
     procedure _SetParent(Parent : HWND);virtual; safecall;
+
+    function Load(aSource : string; var err : string) : BOOL; virtual; safecall;
+    function Save(aTarget : string; var err : string) : BOOL; virtual; safecall;
   public
     Constructor Create(Parent: Cardinal; AApplication: IEceApplication);
     Destructor Destroy; override;
@@ -77,9 +80,19 @@ begin
   result := true;
 end;
 
+function TEceDocumentWindow.Load(aSource: string; var err: string): BOOL;
+begin
+
+end;
+
 procedure TEceDocumentWindow.LoadFromFile(AFileName: String);
 begin
   FFileName := AFileName;
+end;
+
+function TEceDocumentWindow.Save(aTarget: string; var err: string): BOOL;
+begin
+
 end;
 
 procedure TEceDocumentWindow.SaveToFile(AFileName: string);

@@ -78,11 +78,13 @@ type
     procedure _SetFocus; safecall;
     procedure _KillFocus; safecall;
     function GetFileName : string; safecall;
-    procedure _LoadFromFile(Const filename : string); safecall;
     procedure _Show; safecall;
     procedure _Hide; safecall;
     procedure _SetViewRect(left, top, right, bottom : Integer); safecall;
     procedure _SetParent(Parent : HWND); safecall;
+
+    function Load(aSource : string; var err : string) : BOOL; safecall;
+    function Save(aTarget : string; var err : string) : BOOL; safecall;
   end;
 
   IEceDocumentLoader = interface
