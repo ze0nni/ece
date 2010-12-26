@@ -396,6 +396,7 @@ procedure EceFileSave(App: TEceAppWindow; Data: Integer);
 var
   tof: TOpenFilename;
   f: array [0 .. MAX_PATH] of Char;
+  var err : string;
 begin
   ZeroMemory(@f, SizeOf(f));
   ZeroMemory(@tof, SizeOf(tof));
@@ -409,7 +410,10 @@ begin
   tof.Flags := OFN_EXPLORER or OFN_FILEMUSTEXIST or OFN_HIDEREADONLY or
     OFN_PATHMUSTEXIST;
   if GetSaveFileName(tof) then
-//    App.NewDocument(tof.lpstrFile);
+  if not App.ActiveDocumentWindow.Save(tof.lpstrFile, err) then
+  begin
+    MessageBox(App.Handle, PChar(err), nil, MB_ICONERROR);
+  end;
 end;
 
 procedure EceFileSaveAs(App: TEceAppWindow; Data: Integer);
@@ -725,6 +729,7 @@ begin
   ShowWindow(Documents[Index]._GetHandle, SW_HIDE);
   FDocuments.Delete(index);
   FPages.DeletePage(Index);
+  Result := true;
   { todo: Ќужно еще изменить текущий документ }
 end;
 
