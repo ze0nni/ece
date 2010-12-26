@@ -1100,9 +1100,13 @@ function TEceEditorWindow.Save(aTarget: string; var err: string): BOOL;
 begin
   try
     SaveToFile(aTarget);
+    result := true;
   except
     on e: Exception do
+    begin
       err := e.Message;
+      result := false;
+    end;
   end;
 end;
 
@@ -1123,9 +1127,13 @@ function TEceEditorWindow.Load(aSource: string; var err: string): BOOL;
 begin
   try
     LoadFromFile(aSource);
+    Result := True;
   except
     on e: Exception do
+    begin
       err := e.Message;
+      Result := False;
+    end;
   end;
 end;
 
