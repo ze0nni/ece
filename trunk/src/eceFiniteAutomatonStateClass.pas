@@ -6,7 +6,7 @@ uses
   eceFiniteAutomatons;
 
 type
-  TFinateAutomatonState = class(TInterfacedObject, IFinateAutomatonState)
+  TFiniteAutomatonState = class(TInterfacedObject, IFiniteAutomatonState)
 
   end;
 
