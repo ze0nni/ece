@@ -31,10 +31,7 @@ uses
   IeceObj in 'IeceObj.pas',
   EceAppUI in 'EceAppUI.pas',
   eceConfig in 'eceConfig.pas',
-  eceFiniteAutomatons in 'eceFiniteAutomatons.pas',
-  eceFiniteAutomatonClass in 'eceFiniteAutomatonClass.pas',
-  eceFiniteAutomatonSetClass in 'eceFiniteAutomatonSetClass.pas',
-  eceFiniteAutomatonStateClass in 'eceFiniteAutomatonStateClass.pas';
+  eceFiniteAutomatons in 'eceFiniteAutomatons.pas';
 
 // {$IFNDEF FPC},
 // RegisterContextMenu in 'RegisterContextMenu.pas'{$ENDIF};
