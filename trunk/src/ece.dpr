@@ -12,8 +12,7 @@ Program Ece;
 {$IFDEF fpc}{$MODE delphi}{$ENDIF}
 // {$R _source\ece.res}
 // {$R _source\Dialogs.res}
- {$R _source\24.res}
-{$R *.dres}
+ {$R *.dres}
 
 uses
   Windows,
@@ -31,7 +30,11 @@ uses
   eceConsoleWindow in 'eceConsoleWindow.pas',
   IeceObj in 'IeceObj.pas',
   EceAppUI in 'EceAppUI.pas',
-  eceConfig in 'eceConfig.pas';
+  eceConfig in 'eceConfig.pas',
+  eceFiniteAutomatons in 'eceFiniteAutomatons.pas',
+  eceFinateAutomatonClass in 'eceFinateAutomatonClass.pas',
+  eceFinateAutomatonSetClass in 'eceFinateAutomatonSetClass.pas',
+  eceFinateAutomatonStateClass in 'eceFinateAutomatonStateClass.pas';
 
 // {$IFNDEF FPC},
 // RegisterContextMenu in 'RegisterContextMenu.pas'{$ENDIF};
