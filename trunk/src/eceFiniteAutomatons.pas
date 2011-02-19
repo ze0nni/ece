@@ -3,49 +3,49 @@ unit eceFiniteAutomatons;
 interface
 
 type
-  IFinateAutomaton = interface
+  IFiniteAutomaton = interface
     ['{450219EE-FFF0-40F3-AB60-1F8BBB1014FF}']
   end;
 
-  IFinateAutomatonSet = interface
+  IFiniteAutomatonSet = interface
     ['{F5E270C0-866D-421F-A0EB-79EEB1D3C99D}']
   end;
 
-  IFinateAutomatonState = interface
+  IFiniteAutomatonState = interface
     ['{6EE4BE56-E333-46C9-A3E1-F1A73BF1BB6A}']
   end;
 
-function CreateFinateAutomaton : IFinateAutomaton; overload;
-function CreateFinateAutomaton(FileName : string) : IFinateAutomaton; overload;
-function CreateFinateAutomatonSet : IFinateAutomatonSet;
-function CreateFinateAutomatonState : IFinateAutomatonState;
+function CreateFiniteAutomaton : IFiniteAutomaton; overload;
+function CreateFiniteAutomaton(FileName : string) : IFiniteAutomaton; overload;
+function CreateFiniteAutomatonSet : IFiniteAutomatonSet;
+function CreateFiniteAutomatonState : IFiniteAutomatonState;
 
 implementation
 
 uses
-  eceFinateAutomatonStateClass,
-  eceFinateAutomatonSetClass,
-  eceFinateAutomatonClass;
+  eceFiniteAutomatonStateClass,
+  eceFiniteAutomatonSetClass,
+  eceFiniteAutomatonClass;
 
-function CreateFinateAutomaton : IFinateAutomaton;
+function CreateFiniteAutomaton : IFiniteAutomaton;
 begin
-  Result := TFinateAutomaton.Create;
+  Result := TFiniteAutomaton.Create;
 end;
 
-function CreateFinateAutomaton(FileName : string) : IFinateAutomaton;
+function CreateFiniteAutomaton(FileName : string) : IFiniteAutomaton;
 begin
   {TODO -oOnni -cGeneral : LoadFromFile}
-  Result := TFinateAutomaton.Create;
+  Result := TFiniteAutomaton.Create;
 end;
 
-function CreateFinateAutomatonSet : IFinateAutomatonSet;
+function CreateFiniteAutomatonSet : IFiniteAutomatonSet;
 begin
-  Result := TFinateAutomatonSet.Create;
+  Result := TFiniteAutomatonSet.Create;
 end;
 
-function CreateFinateAutomatonState : IFinateAutomatonState;
+function CreateFiniteAutomatonState : IFiniteAutomatonState;
 begin
-  result := TFinateAutomatonState.Create;
+  result := TFiniteAutomatonState.Create;
 end;
 
 end.

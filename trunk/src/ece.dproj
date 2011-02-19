@@ -60,9 +60,9 @@
 			<DCCReference Include="EceAppUI.pas"/>
 			<DCCReference Include="eceConfig.pas"/>
 			<DCCReference Include="eceFiniteAutomatons.pas"/>
-			<DCCReference Include="eceFinateAutomatonClass.pas"/>
-			<DCCReference Include="eceFinateAutomatonSetClass.pas"/>
-			<DCCReference Include="eceFinateAutomatonStateClass.pas"/>
+			<DCCReference Include="eceFiniteAutomatonClass.pas"/>
+			<DCCReference Include="eceFiniteAutomatonSetClass.pas"/>
+			<DCCReference Include="eceFiniteAutomatonStateClass.pas"/>
 			<None Include="syn\vb.xml"/>
 			<None Include="ModelSupport_ece\Ece\default.txvpck"/>
 			<None Include="ModelSupport_ece\default.txaPackage"/>
