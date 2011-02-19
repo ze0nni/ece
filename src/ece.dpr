@@ -32,9 +32,9 @@ uses
   EceAppUI in 'EceAppUI.pas',
   eceConfig in 'eceConfig.pas',
   eceFiniteAutomatons in 'eceFiniteAutomatons.pas',
-  eceFinateAutomatonClass in 'eceFinateAutomatonClass.pas',
-  eceFinateAutomatonSetClass in 'eceFinateAutomatonSetClass.pas',
-  eceFinateAutomatonStateClass in 'eceFinateAutomatonStateClass.pas';
+  eceFiniteAutomatonClass in 'eceFiniteAutomatonClass.pas',
+  eceFiniteAutomatonSetClass in 'eceFiniteAutomatonSetClass.pas',
+  eceFiniteAutomatonStateClass in 'eceFiniteAutomatonStateClass.pas';
 
 // {$IFNDEF FPC},
 // RegisterContextMenu in 'RegisterContextMenu.pas'{$ENDIF};
