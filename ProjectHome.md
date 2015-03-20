@@ -1,0 +1,5 @@
+# ece #
+
+Simple code editor for windows.
+
+https://8718494463170994508-a-1802744773732722657-s-sites.googlegroups.com/site/zedevel/Ece_full.png?attachauth=ANoY7cplbS7qImZct7Y1mk4J416yzmgIiLai9kaHF1pV1Q1o2VYVBpBMoT0nSntQ5F2h47S2Q97Z2wrBJHH0Re6DCgLx7WxEqRCWI-FvCT9XpwqHIwIpb7Na9wxxspUqRE0uyXnLo5iowPg_5elbNAWqsMaHOFfHQBpLVHDD4hUdzhxsv06rz6mhdoQjFmsYhKjqZ4DX78p1&attredirects=0
